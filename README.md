@@ -28,6 +28,16 @@ You just need to have `npx` installed.
 }
 ```
 
+Now, ask Claude to use the `apple-mcp` tool.
+
+```
+Can you send a message to John Doe?
+```
+
+```
+find all the notes related to AI and send it to my girlfriend
+```
+
 ## Local Development
 
 ```bash
