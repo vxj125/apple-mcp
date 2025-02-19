@@ -1,15 +1,40 @@
-# apple-mcp
+# Apple MCP tools
 
-To install dependencies:
+This is a collection of apple-native tools for the [MCP protocol](https://modelcontextprotocol.com/docs/mcp-protocol).
 
-```bash
-bun install
+
+## Features
+
+- Send and retrieve messages from Apple Messages app
+- Search and open notes in Apple Notes app
+- Search and open contacts in Apple Contacts app
+- TODO: Search and open calendar events in Apple Calendar app
+- TODO: Search and open reminders in Apple Reminders app
+- TODO: Search and open photos in Apple Photos app
+- TODO: Search and open music in Apple Music app
+
+## Installation
+
+You just need to have `npx` installed.
+
+```claude_desktop_config.json
+{
+  "mcpServers": {
+    "apple-mcp": {
+      "command": "npx",
+      "args": ["@dhravya/apple-mcp@latest"]
+    }
+  }
+}
 ```
 
-To run:
+## Local Development
 
 ```bash
+git clone https://github.com/dhravya/apple-mcp.git
+cd apple-mcp
+bun install
 bun run index.ts
 ```
 
-This project was created using `bun init` in bun v1.1.34. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+enjoy!
