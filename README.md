@@ -28,6 +28,9 @@ npx -y @smithery/cli install @Dhravya/apple-mcp --client claude
 ```
 
 ### Manual Installation
+
+Now, edit your `claude_desktop_config.json` with this:
+
 ```claude_desktop_config.json
 {
   "mcpServers": {
