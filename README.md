@@ -15,19 +15,9 @@ This is a collection of apple-native tools for the [MCP protocol](https://modelc
 - TODO: Search and open photos in Apple Photos app
 - TODO: Search and open music in Apple Music app
 
-## Installation
 
-You just need to have `bunx` installed.
 
-### Installing via Smithery
-
-To install Apple Tools Integration for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@Dhravya/apple-mcp):
-
-```bash
-npx -y @smithery/cli install @Dhravya/apple-mcp --client claude
-```
-
-### Manual Installation
+### Installation
 
 Now, edit your `claude_desktop_config.json` with this:
 
