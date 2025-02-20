@@ -15,7 +15,7 @@ This is a collection of apple-native tools for the [MCP protocol](https://modelc
 
 ## Installation
 
-You just need to have `npx` installed.
+You just need to have `bunx` installed.
 
 Now, edit your `claude_desktop_config.json` with this:
 
@@ -23,7 +23,7 @@ Now, edit your `claude_desktop_config.json` with this:
 {
   "mcpServers": {
     "apple-mcp": {
-      "command": "npx",
+      "command": "bunx",
       "args": ["@dhravya/apple-mcp@latest"]
     }
   }
