@@ -1,5 +1,7 @@
 # Apple MCP tools
 
+[![smithery badge](https://smithery.ai/badge/@Dhravya/apple-mcp)](https://smithery.ai/server/@Dhravya/apple-mcp)
+
 This is a collection of apple-native tools for the [MCP protocol](https://modelcontextprotocol.com/docs/mcp-protocol).
 
 
@@ -17,6 +19,15 @@ This is a collection of apple-native tools for the [MCP protocol](https://modelc
 
 You just need to have `npx` installed.
 
+### Installing via Smithery
+
+To install Apple Tools Integration for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@Dhravya/apple-mcp):
+
+```bash
+npx -y @smithery/cli install @Dhravya/apple-mcp --client claude
+```
+
+### Manual Installation
 ```claude_desktop_config.json
 {
   "mcpServers": {
