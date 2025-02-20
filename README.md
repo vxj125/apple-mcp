@@ -17,6 +17,8 @@ This is a collection of apple-native tools for the [MCP protocol](https://modelc
 
 You just need to have `npx` installed.
 
+Now, edit your `claude_desktop_config.json` with this:
+
 ```claude_desktop_config.json
 {
   "mcpServers": {
