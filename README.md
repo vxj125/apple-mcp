@@ -18,6 +18,8 @@ Here's a step-by-step video about how to set this up, with a demo. - https://x.c
 
 ### Installation
 
+You just need bun, install with `brew install oven-sh/bun/bun`
+
 Now, edit your `claude_desktop_config.json` with this:
 
 ```claude_desktop_config.json
