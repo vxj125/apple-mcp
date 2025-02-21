@@ -24,7 +24,8 @@
     "dev": "bun run index.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/node": "^22.13.4"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
