@@ -6,15 +6,31 @@ Here's a step-by-step video about how to set this up, with a demo. - https://x.c
 
 ## Features
 
-- Send and retrieve messages from Apple Messages app
-- Search and open notes in Apple Notes app
-- Search and open contacts in Apple Contacts app
+- Messages:
+  - Send messages using the Apple Messages app
+  - Read out messages
+- Notes:
+  - List notes
+  - Search & read notes in Apple Notes app
+- Contacts:
+  - Search contacts for sending messages
+- Emails:
+  - Send emails with multiple recipients (to, cc, bcc) and file attachments
+  - Search emails with custom queries, mailbox selection, and result limits
+  - Schedule emails for future delivery
+  - List and manage scheduled emails
+  - Check unread email counts globally or per mailbox
+
 - TODO: Search and open calendar events in Apple Calendar app
 - TODO: Search and open reminders in Apple Reminders app
 - TODO: Search and open photos in Apple Photos app
 - TODO: Search and open music in Apple Music app
 
 
+You can also daisy-chain commands to create a workflow. Like:
+"can you please read the note about people i met in the conference, find their contacts and emails, and send them a message saying thank you for the time."
+
+(it works!)
 
 ### Installation
 
