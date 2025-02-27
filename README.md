@@ -6,6 +6,23 @@ Here's a step-by-step video about how to set this up, with a demo. - https://x.c
 
 ![Setup](https://i.dhr.wtf/r/Clipboard_Feb_26,_2025_at_11.20 PM.png)
 
+<details>
+<summary>Here's the JSON to copy</summary>
+
+```
+{
+  "mcpServers": {
+    "apple-mcp": {
+      "command": "bunx",
+      "args": ["--no-cache", "@dhravya/apple-mcp@latest"]
+    }
+  }
+}
+```
+
+</details>
+
+
 ## Features
 
 - Messages:
