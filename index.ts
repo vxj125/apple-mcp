@@ -9,6 +9,7 @@ import {
 import contacts from "./utils/contacts";
 import notes from "./utils/notes";
 import message from "./utils/message";
+import mail from "./utils/mail";
 
 const CONTACTS_TOOL: Tool = {
   name: "contacts",
@@ -64,6 +65,58 @@ const MESSAGES_TOOL: Tool = {
       scheduledTime: {
         type: "string",
         description: "ISO string of when to send the message (required for schedule operation)"
+      }
+    },
+    required: ["operation"]
+  }
+};
+
+const MAIL_TOOL: Tool = {
+  name: "mail",
+  description: "Interact with Apple Mail app - read unread emails, search emails, and send emails",
+  inputSchema: {
+    type: "object",
+    properties: {
+      operation: {
+        type: "string",
+        description: "Operation to perform: 'unread', 'search', 'send', 'mailboxes', or 'accounts'",
+        enum: ["unread", "search", "send", "mailboxes", "accounts"]
+      },
+      account: {
+        type: "string",
+        description: "Email account to use (optional - if not provided, searches across all accounts)"
+      },
+      mailbox: {
+        type: "string",
+        description: "Mailbox to use (optional - if not provided, uses inbox or searches across all mailboxes)"
+      },
+      limit: {
+        type: "number",
+        description: "Number of emails to retrieve (optional, for unread and search operations)"
+      },
+      searchTerm: {
+        type: "string",
+        description: "Text to search for in emails (required for search operation)"
+      },
+      to: {
+        type: "string",
+        description: "Recipient email address (required for send operation)"
+      },
+      subject: {
+        type: "string",
+        description: "Email subject (required for send operation)"
+      },
+      body: {
+        type: "string",
+        description: "Email body content (required for send operation)"
+      },
+      cc: {
+        type: "string",
+        description: "CC email address (optional for send operation)"
+      },
+      bcc: {
+        type: "string",
+        description: "BCC email address (optional for send operation)"
       }
     },
     required: ["operation"]
@@ -137,8 +190,55 @@ function isMessagesArgs(args: unknown): args is {
   return true;
 }
 
+function isMailArgs(args: unknown): args is {
+  operation: "unread" | "search" | "send" | "mailboxes" | "accounts";
+  account?: string;
+  mailbox?: string;
+  limit?: number;
+  searchTerm?: string;
+  to?: string;
+  subject?: string;
+  body?: string;
+  cc?: string;
+  bcc?: string;
+} {
+  if (typeof args !== "object" || args === null) return false;
+  
+  const { operation, account, mailbox, limit, searchTerm, to, subject, body, cc, bcc } = args as any;
+  
+  if (!operation || !["unread", "search", "send", "mailboxes", "accounts"].includes(operation)) {
+    return false;
+  }
+  
+  // Validate required fields based on operation
+  switch (operation) {
+    case "search":
+      if (!searchTerm || typeof searchTerm !== "string") return false;
+      break;
+    case "send":
+      if (!to || typeof to !== "string" || 
+          !subject || typeof subject !== "string" || 
+          !body || typeof body !== "string") return false;
+      break;
+    case "unread":
+    case "mailboxes":
+    case "accounts":
+      // No additional required fields
+      break;
+  }
+  
+  // Validate field types if present
+  if (account && typeof account !== "string") return false;
+  if (mailbox && typeof mailbox !== "string") return false;
+  if (limit && typeof limit !== "number") return false;
+  if (cc && typeof cc !== "string") return false;
+  if (bcc && typeof bcc !== "string") return false;
+  
+  return true;
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [CONTACTS_TOOL, NOTES_TOOL, MESSAGES_TOOL],
+  tools: [CONTACTS_TOOL, NOTES_TOOL, MESSAGES_TOOL, MAIL_TOOL],
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -326,6 +426,408 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
           default:
             throw new Error(`Unknown operation: ${args.operation}`);
+        }
+      }
+
+      case "mail": {
+        if (!isMailArgs(args)) {
+          throw new Error("Invalid arguments for mail tool");
+        }
+
+        try {
+          switch (args.operation) {
+            case "unread": {
+              // If an account is specified, we'll try to search specifically in that account
+              let emails;
+              if (args.account) {
+                console.log(`Getting unread emails for account: ${args.account}`);
+                // Use AppleScript to get unread emails from specific account
+                const script = `
+tell application "Mail"
+    set resultList to {}
+    try
+        set targetAccount to first account whose name is "${args.account.replace(/"/g, '\\"')}"
+        
+        -- Get mailboxes for this account
+        set acctMailboxes to every mailbox of targetAccount
+        
+        -- If mailbox is specified, only search in that mailbox
+        set mailboxesToSearch to acctMailboxes
+        ${args.mailbox ? `
+        set mailboxesToSearch to {}
+        repeat with mb in acctMailboxes
+            if name of mb is "${args.mailbox.replace(/"/g, '\\"')}" then
+                set mailboxesToSearch to {mb}
+                exit repeat
+            end if
+        end repeat
+        ` : ''}
+        
+        -- Search specified mailboxes
+        repeat with mb in mailboxesToSearch
+            try
+                set unreadMessages to (messages of mb whose read status is false)
+                if (count of unreadMessages) > 0 then
+                    set msgLimit to ${args.limit || 10}
+                    if (count of unreadMessages) < msgLimit then
+                        set msgLimit to (count of unreadMessages)
+                    end if
+                    
+                    repeat with i from 1 to msgLimit
+                        try
+                            set currentMsg to item i of unreadMessages
+                            set msgData to {subject:(subject of currentMsg), sender:(sender of currentMsg), ¬
+                                        date:(date sent of currentMsg) as string, mailbox:(name of mb)}
+                            
+                            -- Try to get content if possible
+                            try
+                                set msgContent to content of currentMsg
+                                if length of msgContent > 500 then
+                                    set msgContent to (text 1 thru 500 of msgContent) & "..."
+                                end if
+                                set msgData to msgData & {content:msgContent}
+                            on error
+                                set msgData to msgData & {content:"[Content not available]"}
+                            end try
+                            
+                            set end of resultList to msgData
+                        on error
+                            -- Skip problematic messages
+                        end try
+                    end repeat
+                    
+                    if (count of resultList) ≥ ${args.limit || 10} then exit repeat
+                end if
+            on error
+                -- Skip problematic mailboxes
+            end try
+        end repeat
+    on error errMsg
+        return "Error: " & errMsg
+    end try
+    
+    return resultList
+end tell`;
+                
+                try {
+                  const asResult = await runAppleScript(script);
+                  if (asResult && asResult.startsWith('Error:')) {
+                    throw new Error(asResult);
+                  }
+                  
+                  // Parse the results - similar to general getUnreadMails
+                  const emailData = [];
+                  const matches = asResult.match(/\{([^}]+)\}/g);
+                  if (matches && matches.length > 0) {
+                    for (const match of matches) {
+                      try {
+                        const props = match.substring(1, match.length - 1).split(',');
+                        const email: any = {};
+                        
+                        props.forEach(prop => {
+                          const parts = prop.split(':');
+                          if (parts.length >= 2) {
+                            const key = parts[0].trim();
+                            const value = parts.slice(1).join(':').trim();
+                            email[key] = value;
+                          }
+                        });
+                        
+                        if (email.subject || email.sender) {
+                          emailData.push({
+                            subject: email.subject || "No subject",
+                            sender: email.sender || "Unknown sender",
+                            dateSent: email.date || new Date().toString(),
+                            content: email.content || "[Content not available]",
+                            isRead: false,
+                            mailbox: `${args.account} - ${email.mailbox || "Unknown"}`
+                          });
+                        }
+                      } catch (parseError) {
+                        console.error('Error parsing email match:', parseError);
+                      }
+                    }
+                  }
+                  
+                  emails = emailData;
+                } catch (error) {
+                  console.error('Error getting account-specific emails:', error);
+                  // Fallback to general method if specific account fails
+                  emails = await mail.getUnreadMails(args.limit);
+                }
+              } else {
+                // No account specified, use the general method
+                emails = await mail.getUnreadMails(args.limit);
+              }
+              
+              return {
+                content: [{ 
+                  type: "text", 
+                  text: emails.length > 0 ? 
+                    `Found ${emails.length} unread email(s)${args.account ? ` in account "${args.account}"` : ''}${args.mailbox ? ` and mailbox "${args.mailbox}"` : ''}:\n\n` +
+                    emails.map(email => 
+                      `[${email.dateSent}] From: ${email.sender}\nMailbox: ${email.mailbox}\nSubject: ${email.subject}\n${email.content.substring(0, 200)}${email.content.length > 200 ? '...' : ''}`
+                    ).join("\n\n") :
+                    `No unread emails found${args.account ? ` in account "${args.account}"` : ''}${args.mailbox ? ` and mailbox "${args.mailbox}"` : ''}`
+                }],
+                isError: false
+              };
+            }
+
+            case "search": {
+              if (!args.searchTerm) {
+                throw new Error("Search term is required for search operation");
+              }
+              
+              // If account is specified, try to search in that account
+              let emails;
+              if (args.account) {
+                console.log(`Searching emails in account "${args.account}" for "${args.searchTerm}"`);
+                // Use AppleScript to search in specific account
+                const script = `
+tell application "Mail"
+    set resultList to {}
+    try
+        set targetAccount to first account whose name is "${args.account.replace(/"/g, '\\"')}"
+        set searchString to "${args.searchTerm.replace(/"/g, '\\"')}"
+        
+        -- Get mailboxes for this account
+        set acctMailboxes to every mailbox of targetAccount
+        
+        -- If mailbox is specified, only search in that mailbox
+        set mailboxesToSearch to acctMailboxes
+        ${args.mailbox ? `
+        set mailboxesToSearch to {}
+        repeat with mb in acctMailboxes
+            if name of mb is "${args.mailbox.replace(/"/g, '\\"')}" then
+                set mailboxesToSearch to {mb}
+                exit repeat
+            end if
+        end repeat
+        ` : ''}
+        
+        -- Search specified mailboxes
+        repeat with mb in mailboxesToSearch
+            try
+                set foundMessages to (messages of mb whose (subject contains searchString) or (content contains searchString))
+                if (count of foundMessages) > 0 then
+                    set msgLimit to ${args.limit || 10}
+                    if (count of foundMessages) < msgLimit then
+                        set msgLimit to (count of foundMessages)
+                    end if
+                    
+                    repeat with i from 1 to msgLimit
+                        try
+                            set currentMsg to item i of foundMessages
+                            set msgData to {subject:(subject of currentMsg), sender:(sender of currentMsg), ¬
+                                        date:(date sent of currentMsg) as string, mailbox:(name of mb)}
+                            
+                            -- Try to get content if possible
+                            try
+                                set msgContent to content of currentMsg
+                                if length of msgContent > 500 then
+                                    set msgContent to (text 1 thru 500 of msgContent) & "..."
+                                end if
+                                set msgData to msgData & {content:msgContent}
+                            on error
+                                set msgData to msgData & {content:"[Content not available]"}
+                            end try
+                            
+                            set end of resultList to msgData
+                        on error
+                            -- Skip problematic messages
+                        end try
+                    end repeat
+                    
+                    if (count of resultList) ≥ ${args.limit || 10} then exit repeat
+                end if
+            on error
+                -- Skip problematic mailboxes
+            end try
+        end repeat
+    on error errMsg
+        return "Error: " & errMsg
+    end try
+    
+    return resultList
+end tell`;
+                
+                try {
+                  const asResult = await runAppleScript(script);
+                  if (asResult && asResult.startsWith('Error:')) {
+                    throw new Error(asResult);
+                  }
+                  
+                  // Parse the results
+                  const emailData = [];
+                  const matches = asResult.match(/\{([^}]+)\}/g);
+                  if (matches && matches.length > 0) {
+                    for (const match of matches) {
+                      try {
+                        const props = match.substring(1, match.length - 1).split(',');
+                        const email: any = {};
+                        
+                        props.forEach(prop => {
+                          const parts = prop.split(':');
+                          if (parts.length >= 2) {
+                            const key = parts[0].trim();
+                            const value = parts.slice(1).join(':').trim();
+                            email[key] = value;
+                          }
+                        });
+                        
+                        if (email.subject || email.sender) {
+                          emailData.push({
+                            subject: email.subject || "No subject",
+                            sender: email.sender || "Unknown sender",
+                            dateSent: email.date || new Date().toString(),
+                            content: email.content || "[Content not available]",
+                            isRead: false,
+                            mailbox: `${args.account} - ${email.mailbox || "Unknown"}`
+                          });
+                        }
+                      } catch (parseError) {
+                        console.error('Error parsing email match:', parseError);
+                      }
+                    }
+                  }
+                  
+                  emails = emailData;
+                } catch (error) {
+                  console.error('Error searching account-specific emails:', error);
+                  // Fallback to general method if specific account fails
+                  emails = await mail.searchMails(args.searchTerm, args.limit);
+                }
+              } else {
+                // No account specified, use the general method
+                emails = await mail.searchMails(args.searchTerm, args.limit);
+              }
+              
+              return {
+                content: [{ 
+                  type: "text", 
+                  text: emails.length > 0 ? 
+                    `Found ${emails.length} email(s) for "${args.searchTerm}"${args.account ? ` in account "${args.account}"` : ''}${args.mailbox ? ` and mailbox "${args.mailbox}"` : ''}:\n\n` +
+                    emails.map(email => 
+                      `[${email.dateSent}] From: ${email.sender}\nMailbox: ${email.mailbox}\nSubject: ${email.subject}\n${email.content.substring(0, 200)}${email.content.length > 200 ? '...' : ''}`
+                    ).join("\n\n") :
+                    `No emails found for "${args.searchTerm}"${args.account ? ` in account "${args.account}"` : ''}${args.mailbox ? ` and mailbox "${args.mailbox}"` : ''}`
+                }],
+                isError: false
+              };
+            }
+
+            case "send": {
+              if (!args.to || !args.subject || !args.body) {
+                throw new Error("Recipient (to), subject, and body are required for send operation");
+              }
+              
+              // If account is specified, try to send from that account
+              if (args.account) {
+                console.log(`Sending email from account "${args.account}"`);
+                // Use AppleScript to send from specific account
+                const script = `
+tell application "Mail"
+    try
+        set targetAccount to first account whose name is "${args.account.replace(/"/g, '\\"')}"
+        set newMessage to make new outgoing message with properties {subject:"${args.subject.replace(/"/g, '\\"')}", content:"${args.body.replace(/"/g, '\\"')}", visible:true}
+        
+        -- Set the account for sending
+        tell newMessage
+            set sender to email address of targetAccount
+            make new to recipient with properties {address:"${args.to.replace(/"/g, '\\"')}"}
+            ${args.cc ? `make new cc recipient with properties {address:"${args.cc.replace(/"/g, '\\"')}"}` : ''}
+            ${args.bcc ? `make new bcc recipient with properties {address:"${args.bcc.replace(/"/g, '\\"')}"}` : ''}
+        end tell
+        
+        send newMessage
+        return "success"
+    on error errMsg
+        return "Error: " & errMsg
+    end try
+end tell`;
+                
+                try {
+                  const asResult = await runAppleScript(script);
+                  if (asResult && asResult.startsWith('Error:')) {
+                    throw new Error(asResult);
+                  }
+                  
+                  return {
+                    content: [{ type: "text", text: `Email sent from account "${args.account}" to ${args.to} with subject "${args.subject}"` }],
+                    isError: false
+                  };
+                } catch (error) {
+                  console.error('Error sending from specific account:', error);
+                  // Fallback to general send method
+                  const result = await mail.sendMail(args.to, args.subject, args.body, args.cc, args.bcc);
+                  return {
+                    content: [{ type: "text", text: result }],
+                    isError: false
+                  };
+                }
+              } else {
+                // No account specified, use the general method
+                const result = await mail.sendMail(args.to, args.subject, args.body, args.cc, args.bcc);
+                return {
+                  content: [{ type: "text", text: result }],
+                  isError: false
+                };
+              }
+            }
+
+            case "mailboxes": {
+              if (args.account) {
+                // Get mailboxes for specific account
+                const mailboxes = await mail.getMailboxesForAccount(args.account);
+                return {
+                  content: [{ 
+                    type: "text", 
+                    text: mailboxes.length > 0 ? 
+                      `Found ${mailboxes.length} mailboxes for account "${args.account}":\n\n${mailboxes.join("\n")}` :
+                      `No mailboxes found for account "${args.account}". Make sure the account name is correct.`
+                  }],
+                  isError: false
+                };
+              } else {
+                // Get all mailboxes
+                const mailboxes = await mail.getMailboxes();
+                return {
+                  content: [{ 
+                    type: "text", 
+                    text: mailboxes.length > 0 ? 
+                      `Found ${mailboxes.length} mailboxes:\n\n${mailboxes.join("\n")}` :
+                      "No mailboxes found. Make sure Mail app is running and properly configured."
+                  }],
+                  isError: false
+                };
+              }
+            }
+            
+            case "accounts": {
+              const accounts = await mail.getAccounts();
+              return {
+                content: [{ 
+                  type: "text", 
+                  text: accounts.length > 0 ? 
+                    `Found ${accounts.length} email accounts:\n\n${accounts.join("\n")}` :
+                    "No email accounts found. Make sure Mail app is configured with at least one account."
+                }],
+                isError: false
+              };
+            }
+
+            default:
+              throw new Error(`Unknown operation: ${args.operation}`);
+          }
+        } catch (error) {
+          return {
+            content: [{
+              type: "text",
+              text: `Error with mail operation: ${error instanceof Error ? error.message : String(error)}`
+            }],
+            isError: true
+          };
         }
       }
 
