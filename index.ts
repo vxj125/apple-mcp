@@ -10,6 +10,7 @@ import contacts from "./utils/contacts";
 import notes from "./utils/notes";
 import message from "./utils/message";
 import mail from "./utils/mail";
+import reminders from "./utils/reminders";
 import { runAppleScript } from "run-applescript";
 
 const CONTACTS_TOOL: Tool = {
@@ -118,6 +119,53 @@ const MAIL_TOOL: Tool = {
       bcc: {
         type: "string",
         description: "BCC email address (optional for send operation)"
+      }
+    },
+    required: ["operation"]
+  }
+};
+
+const REMINDERS_TOOL: Tool = {
+  name: "reminders",
+  description: "Search, create, and open reminders in Apple Reminders app",
+  inputSchema: {
+    type: "object",
+    properties: {
+      operation: {
+        type: "string",
+        description: "Operation to perform: 'list', 'search', 'open', 'create', or 'listById'",
+        enum: ["list", "search", "open", "create", "listById"]
+      },
+      searchText: {
+        type: "string",
+        description: "Text to search for in reminders (required for search and open operations)"
+      },
+      name: {
+        type: "string",
+        description: "Name of the reminder to create (required for create operation)"
+      },
+      listName: {
+        type: "string",
+        description: "Name of the list to create the reminder in (optional for create operation)"
+      },
+      listId: {
+        type: "string",
+        description: "ID of the list to get reminders from (required for listById operation)"
+      },
+      props: {
+        type: "array",
+        items: {
+          type: "string"
+        },
+        description: "Properties to include in the reminders (optional for listById operation)"
+      },
+      notes: {
+        type: "string",
+        description: "Additional notes for the reminder (optional for create operation)"
+      },
+      dueDate: {
+        type: "string",
+        description: "Due date for the reminder in ISO format (optional for create operation)"
       }
     },
     required: ["operation"]
@@ -238,8 +286,52 @@ function isMailArgs(args: unknown): args is {
   return true;
 }
 
+function isRemindersArgs(args: unknown): args is {
+  operation: "list" | "search" | "open" | "create" | "listById";
+  searchText?: string;
+  name?: string;
+  listName?: string;
+  listId?: string;
+  props?: string[];
+  notes?: string;
+  dueDate?: string;
+} {
+  if (typeof args !== "object" || args === null) {
+    return false;
+  }
+
+  const { operation } = args as any;
+  if (typeof operation !== "string") {
+    return false;
+  }
+
+  if (!["list", "search", "open", "create", "listById"].includes(operation)) {
+    return false;
+  }
+
+  // For search and open operations, searchText is required
+  if ((operation === "search" || operation === "open") && 
+      (typeof (args as any).searchText !== "string" || (args as any).searchText === "")) {
+    return false;
+  }
+
+  // For create operation, name is required
+  if (operation === "create" && 
+      (typeof (args as any).name !== "string" || (args as any).name === "")) {
+    return false;
+  }
+  
+  // For listById operation, listId is required
+  if (operation === "listById" && 
+      (typeof (args as any).listId !== "string" || (args as any).listId === "")) {
+    return false;
+  }
+
+  return true;
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [CONTACTS_TOOL, NOTES_TOOL, MESSAGES_TOOL, MAIL_TOOL],
+  tools: [CONTACTS_TOOL, NOTES_TOOL, MESSAGES_TOOL, MAIL_TOOL, REMINDERS_TOOL],
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -832,6 +924,107 @@ end tell`;
         }
       }
 
+      case "reminders": {
+        if (!isRemindersArgs(args)) {
+          throw new Error("Invalid arguments for reminders tool");
+        }
+
+        try {
+          const { operation } = args;
+
+          if (operation === "list") {
+            // List all reminders
+            const lists = await reminders.getAllLists();
+            const allReminders = await reminders.getAllReminders();
+            return {
+              content: [{
+                type: "text",
+                text: `Found ${lists.length} lists and ${allReminders.length} reminders.`
+              }],
+              lists,
+              reminders: allReminders,
+              isError: false
+            };
+          } 
+          else if (operation === "search") {
+            // Search for reminders
+            const { searchText } = args;
+            const results = await reminders.searchReminders(searchText!);
+            return {
+              content: [{
+                type: "text",
+                text: results.length > 0 
+                  ? `Found ${results.length} reminders matching "${searchText}".` 
+                  : `No reminders found matching "${searchText}".`
+              }],
+              reminders: results,
+              isError: false
+            };
+          } 
+          else if (operation === "open") {
+            // Open a reminder
+            const { searchText } = args;
+            const result = await reminders.openReminder(searchText!);
+            return {
+              content: [{
+                type: "text",
+                text: result.success 
+                  ? `Opened Reminders app. Found reminder: ${result.reminder?.name}` 
+                  : result.message
+              }],
+              ...result,
+              isError: !result.success
+            };
+          } 
+          else if (operation === "create") {
+            // Create a reminder
+            const { name, listName, notes, dueDate } = args;
+            const result = await reminders.createReminder(name!, listName, notes, dueDate);
+            return {
+              content: [{
+                type: "text",
+                text: `Created reminder "${result.name}" ${listName ? `in list "${listName}"` : ''}.`
+              }],
+              success: true,
+              reminder: result,
+              isError: false
+            };
+          }
+          else if (operation === "listById") {
+            // Get reminders from a specific list by ID
+            const { listId, props } = args;
+            const results = await reminders.getRemindersFromListById(listId!, props);
+            return {
+              content: [{
+                type: "text",
+                text: results.length > 0 
+                  ? `Found ${results.length} reminders in list with ID "${listId}".` 
+                  : `No reminders found in list with ID "${listId}".`
+              }],
+              reminders: results,
+              isError: false
+            };
+          }
+
+          return {
+            content: [{
+              type: "text",
+              text: "Unknown operation"
+            }],
+            isError: true
+          };
+        } catch (error) {
+          console.error("Error in reminders tool:", error);
+          return {
+            content: [{
+              type: "text",
+              text: `Error in reminders tool: ${error}`
+            }],
+            isError: true
+          };
+        }
+      }
+
       default:
         return {
           content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -851,6 +1044,23 @@ end tell`;
   }
 });
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
-console.error("Apple MCP Server running on stdio");
+(async () => {
+  try {
+    const transport = new StdioServerTransport();
+
+    // Ensure stdout is only used for JSON messages
+    const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (chunk: any, encoding?: any, callback?: any) => {
+      // Only allow JSON messages to pass through
+      if (typeof chunk === "string" && !chunk.startsWith("{")) {
+        return true; // Silently skip non-JSON messages
+      }
+      return originalStdoutWrite(chunk, encoding, callback);
+    };
+
+    await server.connect(transport);
+  } catch (error) {
+    console.error("Failed to initialize MCP server:", error);
+    process.exit(1);
+  }
+})();

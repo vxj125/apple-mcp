@@ -4,7 +4,7 @@ This is a collection of apple-native tools for the [MCP protocol](https://modelc
 
 Here's a step-by-step video about how to set this up, with a demo. - https://x.com/DhravyaShah/status/1892694077679763671
 
-![Setup](https://i.dhr.wtf/r/Clipboard_Feb_26,_2025_at_11.20 PM.png)
+![Setup](https://i.dhr.wtf/r/Clipboard_Feb_26,_2025_at_11.20 PM.png)
 
 <details>
 <summary>Here's the JSON to copy</summary>
@@ -39,9 +39,13 @@ Here's a step-by-step video about how to set this up, with a demo. - https://x.c
   - Schedule emails for future delivery
   - List and manage scheduled emails
   - Check unread email counts globally or per mailbox
+- Reminders:
+  - List all reminders and reminder lists
+  - Search for reminders by text
+  - Create new reminders with optional due dates and notes
+  - Open the Reminders app to view specific reminders
 
 - TODO: Search and open calendar events in Apple Calendar app
-- TODO: Search and open reminders in Apple Reminders app
 - TODO: Search and open photos in Apple Photos app
 - TODO: Search and open music in Apple Music app
 
@@ -76,6 +80,10 @@ Can you send a message to John Doe?
 
 ```
 find all the notes related to AI and send it to my girlfriend
+```
+
+```
+create a reminder to "Buy groceries" for tomorrow at 5pm
 ```
 
 ## Local Development
