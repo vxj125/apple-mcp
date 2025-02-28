@@ -10,6 +10,7 @@ import contacts from "./utils/contacts";
 import notes from "./utils/notes";
 import message from "./utils/message";
 import mail from "./utils/mail";
+import { runAppleScript } from "run-applescript";
 
 const CONTACTS_TOOL: Tool = {
   name: "contacts",
