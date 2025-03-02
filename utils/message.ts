@@ -18,7 +18,7 @@ async function retryOperation<T>(operation: () => Promise<T>, retries = MAX_RETR
         return await operation();
     } catch (error) {
         if (retries > 0) {
-            console.log(`Operation failed, retrying... (${retries} attempts remaining)`);
+            console.error(`Operation failed, retrying... (${retries} attempts remaining)`);
             await sleep(delay);
             return retryOperation(operation, retries - 1, delay);
         }
@@ -220,7 +220,7 @@ async function readMessages(phoneNumber: string, limit: number = 10): Promise<Me
 
         // Get all possible formats of the phone number
         const phoneFormats = normalizePhoneNumber(phoneNumber);
-        console.log("Trying phone formats:", phoneFormats);
+        console.error("Trying phone formats:", phoneFormats);
         
         // Create SQL IN clause with all phone number formats
         const phoneList = phoneFormats.map(p => `'${p.replace(/'/g, "''")}'`).join(',');
@@ -261,7 +261,7 @@ async function readMessages(phoneNumber: string, limit: number = 10): Promise<Me
         );
         
         if (!stdout.trim()) {
-            console.log("No messages found in database for the given phone number");
+            console.error("No messages found in database for the given phone number");
             return [];
         }
 
@@ -384,7 +384,7 @@ async function getUnreadMessages(limit: number = 10): Promise<Message[]> {
         );
         
         if (!stdout.trim()) {
-            console.log("No unread messages found");
+            console.error("No unread messages found");
             return [];
         }
 

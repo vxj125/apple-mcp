@@ -10,7 +10,7 @@ tell application "System Events"
 end tell`);
 
     if (isRunning !== "true") {
-      console.log("Mail app is not running, attempting to launch...");
+      console.error("Mail app is not running, attempting to launch...");
       try {
         await runAppleScript(`
 tell application "Mail" to activate
@@ -39,7 +39,7 @@ end tell`);
 tell application "Mail"
     return its version
 end tell`);
-        console.log("Mail version:", mailVersion);
+        console.error("Mail version:", mailVersion);
         return true;
       } catch (versionError) {
         console.error("Error getting Mail version:", versionError);
@@ -175,7 +175,7 @@ end tell`;
                   });
                 }
               } catch (parseError) {
-                console.log("Error parsing email match:", parseError);
+                console.error("Error parsing email match:", parseError);
               }
             });
           }
@@ -184,7 +184,7 @@ end tell`;
             return parsedEmails;
           }
         } catch (parseError) {
-          console.log("Error parsing AppleScript result:", parseError);
+          console.error("Error parsing AppleScript result:", parseError);
           // If parsing failed, continue to the JXA approach
         }
       }
@@ -195,7 +195,7 @@ end tell`;
         asResult.includes("subject") &&
         asResult.includes("sender")
       ) {
-        console.log("Returning raw AppleScript result for debugging");
+        console.error("Returning raw AppleScript result for debugging");
         return [
           {
             subject: "Raw AppleScript Output",
@@ -211,7 +211,7 @@ end tell`;
       // Continue to JXA approach as fallback
     }
 
-    console.log("Trying JXA approach for unread emails...");
+    console.error("Trying JXA approach for unread emails...");
     // Check Mail accounts as a different approach
     const accounts = await runAppleScript(`
 tell application "Mail"
@@ -221,7 +221,7 @@ tell application "Mail"
     end repeat
     return accts
 end tell`);
-    console.log("Available accounts:", accounts);
+    console.error("Available accounts:", accounts);
 
     // Try using direct AppleScript to check for unread messages across all accounts
     const unreadInfo = await runAppleScript(`
@@ -239,7 +239,7 @@ tell application "Mail"
     end repeat
     return unreadInfo
 end tell`);
-    console.log("Mailboxes with unread messages:", unreadInfo);
+    console.error("Mailboxes with unread messages:", unreadInfo);
 
     // Fallback to JXA approach
     const unreadMails: EmailMessage[] = await run((limit: number) => {
@@ -249,18 +249,18 @@ end tell`);
       try {
         // Get all accounts first
         const accounts = Mail.accounts();
-        console.log(`Found ${accounts.length} accounts`);
+        console.error(`Found ${accounts.length} accounts`);
 
         // Go through all accounts to find mailboxes
         for (const account of accounts) {
           try {
             const accountName = account.name();
-            console.log(`Processing account: ${accountName}`);
+            console.error(`Processing account: ${accountName}`);
 
             // Try to get mailboxes for this account
             try {
               const accountMailboxes = account.mailboxes();
-              console.log(
+              console.error(
                 `Account ${accountName} has ${accountMailboxes.length} mailboxes`,
               );
 
@@ -268,7 +268,7 @@ end tell`);
               for (const mailbox of accountMailboxes) {
                 try {
                   const boxName = mailbox.name();
-                  console.log(`Checking ${boxName} in ${accountName}`);
+                  console.error(`Checking ${boxName} in ${accountName}`);
 
                   // Try to get unread messages
                   let unreadMessages;
@@ -276,7 +276,7 @@ end tell`);
                     unreadMessages = mailbox.messages.whose({
                       readStatus: false,
                     })();
-                    console.log(
+                    console.error(
                       `Found ${unreadMessages.length} unread in ${boxName}`,
                     );
 
@@ -299,16 +299,16 @@ end tell`);
                           mailbox: `${accountName} - ${boxName}`,
                         });
                       } catch (msgError) {
-                        console.log(`Error with message: ${msgError}`);
+                        console.error(`Error with message: ${msgError}`);
                       }
                     }
                   } catch (unreadError) {
-                    console.log(
+                    console.error(
                       `Error getting unread for ${boxName}: ${unreadError}`,
                     );
                   }
                 } catch (boxError) {
-                  console.log(`Error with mailbox: ${boxError}`);
+                  console.error(`Error with mailbox: ${boxError}`);
                 }
 
                 // If we have enough messages, stop
@@ -317,7 +317,7 @@ end tell`);
                 }
               }
             } catch (mbError) {
-              console.log(
+              console.error(
                 `Error getting mailboxes for ${accountName}: ${mbError}`,
               );
             }
@@ -327,14 +327,14 @@ end tell`);
               break;
             }
           } catch (accError) {
-            console.log(`Error with account: ${accError}`);
+            console.error(`Error with account: ${accError}`);
           }
         }
       } catch (error) {
-        console.log(`General error: ${error}`);
+        console.error(`General error: ${error}`);
       }
 
-      console.log(`Returning ${results.length} unread messages`);
+      console.error(`Returning ${results.length} unread messages`);
       return results;
     }, limit);
 
@@ -417,7 +417,7 @@ end tell`;
             }));
           }
         } catch (parseError) {
-          console.log("Error parsing AppleScript result:", parseError);
+          console.error("Error parsing AppleScript result:", parseError);
           // Continue to JXA approach if parsing fails
         }
       }
@@ -431,16 +431,16 @@ end tell`;
         const Mail = Application("Mail");
         const results = [];
 
-        console.log(`Searching for "${searchTerm}" in mailboxes...`);
+        console.error(`Searching for "${searchTerm}" in mailboxes...`);
 
         // Search in the most common mailboxes
         try {
           const mailboxes = Mail.mailboxes();
-          console.log(`Found ${mailboxes.length} mailboxes to search`);
+          console.error(`Found ${mailboxes.length} mailboxes to search`);
 
           for (const mailbox of mailboxes) {
             try {
-              console.log(`Searching in mailbox: ${mailbox.name()}`);
+              console.error(`Searching in mailbox: ${mailbox.name()}`);
 
               // Try to find messages with the search term in subject or content
               let messages;
@@ -452,11 +452,11 @@ end tell`;
                   ],
                 })();
 
-                console.log(
+                console.error(
                   `Found ${messages.length} matching messages in ${mailbox.name()}`,
                 );
               } catch (queryError) {
-                console.log(
+                console.error(
                   `Error querying messages in ${mailbox.name()}:`,
                   queryError,
                 );
@@ -480,7 +480,7 @@ end tell`;
                     mailbox: mailbox.name(),
                   });
                 } catch (msgError) {
-                  console.log("Error processing message:", msgError);
+                  console.error("Error processing message:", msgError);
                 }
               }
 
@@ -488,14 +488,14 @@ end tell`;
                 break;
               }
             } catch (boxError) {
-              console.log(`Error with mailbox ${mailbox.name()}:`, boxError);
+              console.error(`Error with mailbox ${mailbox.name()}:`, boxError);
             }
           }
         } catch (mbError) {
-          console.log("Error getting mailboxes:", mbError);
+          console.error("Error getting mailboxes:", mbError);
         }
 
-        console.log(`Returning ${results.length} search results`);
+        console.error(`Returning ${results.length} search results`);
         return results.slice(0, limit);
       },
       searchTerm,
@@ -642,7 +642,7 @@ end if`);
         const mailboxes = Mail.mailboxes();
 
         if (!mailboxes || mailboxes.length === 0) {
-          console.log("No mailboxes found directly");
+          console.error("No mailboxes found directly");
 
           // Try alternative approach
           try {
@@ -652,11 +652,11 @@ end if`);
             });
 
             if (result && result.length > 0) {
-              console.log("Found mailboxes via execute method");
+              console.error("Found mailboxes via execute method");
               return result;
             }
           } catch (execError) {
-            console.log("Error with execute method:", execError);
+            console.error("Error with execute method:", execError);
           }
 
           return [];
@@ -666,17 +666,17 @@ end if`);
           try {
             return box.name();
           } catch (nameError) {
-            console.log("Error getting mailbox name:", nameError);
+            console.error("Error getting mailbox name:", nameError);
             return "Unknown mailbox";
           }
         });
       } catch (error) {
-        console.log("Error accessing mailboxes:", error);
+        console.error("Error accessing mailboxes:", error);
         return [];
       }
     });
 
-    console.log("Retrieved mailboxes:", mailboxes);
+    console.error("Retrieved mailboxes:", mailboxes);
     return mailboxes;
   } catch (error) {
     console.error("Error in getMailboxes:", error);

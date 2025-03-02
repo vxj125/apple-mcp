@@ -541,7 +541,7 @@ function initServer() {
                 // If an account is specified, we'll try to search specifically in that account
                 let emails;
                 if (args.account) {
-                  console.log(`Getting unread emails for account: ${args.account}`);
+                  console.error(`Getting unread emails for account: ${args.account}`);
                   // Use AppleScript to get unread emails from specific account
                   const script = `
 tell application "Mail"
