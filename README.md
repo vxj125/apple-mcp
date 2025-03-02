@@ -1,4 +1,4 @@
-# Apple MCP tools
+![image](https://github.com/user-attachments/assets/a12ac722-dfc0-4ee4-86b4-497638f946f8)# Apple MCP tools
 
 This is a collection of apple-native tools for the [MCP protocol](https://modelcontextprotocol.com/docs/mcp-protocol).
 
@@ -15,10 +15,10 @@ Here's a step-by-step video about how to set this up, with a demo. - https://x.c
   "mcpServers": {
     "apple-mcp": {
       "command": "bunx",
-      "args": ["--no-cache", "@dhravya/apple-mcp@latest"]
+      "args": ["--no-cache", "apple-mcp@latest"]
     }
-  }
 }
+
 ```
 
 </details>
