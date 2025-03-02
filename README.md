@@ -4,7 +4,8 @@ This is a collection of apple-native tools for the [MCP protocol](https://modelc
 
 Here's a step-by-step video about how to set this up, with a demo. - https://x.com/DhravyaShah/status/1892694077679763671
 
-![Setup](https://i.dhr.wtf/r/Clipboard_Feb_26,_2025_at_11.20%20PM.png)
+![image](https://github.com/user-attachments/assets/56a5ccfa-cb1a-4226-80c5-6cc794cefc34)
+
 
 <details>
 <summary>Here's the JSON to copy</summary>
