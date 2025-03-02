@@ -131,7 +131,9 @@ interface SearchResult {
   
       const html = await makeRequest(searchUrl);
       const results = extractDDGResults(html);
-  
+
+      console.error(results);
+
       return {
         query,
         results

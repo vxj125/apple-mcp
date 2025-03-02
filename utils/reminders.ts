@@ -253,6 +253,6 @@ async function openReminder(searchText: string): Promise<OpenReminderResult> {
     };
 }
 
-console.log(await getAllReminders())
+console.error(await getAllReminders())
 
 export default { getAllLists, getAllReminders, searchReminders, createReminder, openReminder, getRemindersFromListById }; 
