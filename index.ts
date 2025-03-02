@@ -4,9 +4,34 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { runAppleScript } from "run-applescript";
+import tools from "./tools";
+
+interface Reminder {
+  name: string;
+  id: string;
+  body: string;
+  completed: boolean;
+  dueDate: string | null;
+  listName: string;
+  completionDate?: string | null;
+  creationDate?: string | null;
+  modificationDate?: string | null;
+  remindMeDate?: string | null;
+  priority?: number;
+}
+
+interface SearchResult {
+  title: string;
+  url: string;
+  displayUrl: string;
+  snippet: string;
+}
+
+interface WebSearchArgs {
+  query: string;
+}
 
 // Safe mode implementation - lazy loading of modules
 let useEagerLoading = true;
@@ -16,14 +41,25 @@ let safeModeFallback = false;
 console.error("Starting apple-mcp server...");
 
 // Placeholders for modules - will either be loaded eagerly or lazily
-let contacts: any = null;
-let notes: any = null;
-let message: any = null;
-let mail: any = null;
-let reminders: any = null;
+let contacts: typeof import('./utils/contacts').default | null = null;
+let notes: typeof import('./utils/notes').default | null = null;
+let message: typeof import('./utils/message').default | null = null;
+let mail: typeof import('./utils/mail').default | null = null;
+let reminders: typeof import('./utils/reminders').default | null = null;
+let webSearch: typeof import('./utils/webSearch').default | null = null;
+
+// Type map for module names to their types
+type ModuleMap = {
+  contacts: typeof import('./utils/contacts').default;
+  notes: typeof import('./utils/notes').default;
+  message: typeof import('./utils/message').default;
+  mail: typeof import('./utils/mail').default;
+  reminders: typeof import('./utils/reminders').default;
+  webSearch: typeof import('./utils/webSearch').default;
+};
 
 // Helper function for lazy module loading
-async function loadModule(moduleName: string) {
+async function loadModule<T extends 'contacts' | 'notes' | 'message' | 'mail' | 'reminders' | 'webSearch'>(moduleName: T): Promise<ModuleMap[T]> {
   if (safeModeFallback) {
     console.error(`Loading ${moduleName} module on demand (safe mode)...`);
   }
@@ -32,19 +68,22 @@ async function loadModule(moduleName: string) {
     switch (moduleName) {
       case 'contacts':
         if (!contacts) contacts = (await import('./utils/contacts')).default;
-        return contacts;
+        return contacts as ModuleMap[T];
       case 'notes':
         if (!notes) notes = (await import('./utils/notes')).default;
-        return notes;
+        return notes as ModuleMap[T];
       case 'message':
         if (!message) message = (await import('./utils/message')).default;
-        return message;
+        return message as ModuleMap[T];
       case 'mail':
         if (!mail) mail = (await import('./utils/mail')).default;
-        return mail;
+        return mail as ModuleMap[T];
       case 'reminders':
         if (!reminders) reminders = (await import('./utils/reminders')).default;
-        return reminders;
+        return reminders as ModuleMap[T];
+      case 'webSearch':
+        if (!webSearch) webSearch = (await import('./utils/webSearch')).default;
+        return webSearch as ModuleMap[T];
       default:
         throw new Error(`Unknown module: ${moduleName}`);
     }
@@ -56,7 +95,7 @@ async function loadModule(moduleName: string) {
 
 // Set a timeout to switch to safe mode if initialization takes too long
 loadingTimeout = setTimeout(() => {
-  console.error("Loading timeout reached. Switching to safe mode (lazy loading)...");
+  console.error("Loading timeout reached. Switching to safe mode (lazy loading...)");
   useEagerLoading = false;
   safeModeFallback = true;
   
@@ -129,165 +168,6 @@ async function attemptEagerLoading() {
 // Attempt eager loading first
 attemptEagerLoading();
 
-const CONTACTS_TOOL: Tool = {
-  name: "contacts",
-  description: "Search and retrieve contacts from Apple Contacts app",
-  inputSchema: {
-    type: "object",
-    properties: {
-      name: {
-        type: "string",
-        description: "Name to search for (optional - if not provided, returns all contacts). Can be partial name to search."
-      }
-    }
-  }
-};
-
-const NOTES_TOOL: Tool = {
-  name: "notes", 
-  description: "Search and retrieve notes from Apple Notes app",
-  inputSchema: {
-    type: "object",
-    properties: {
-      searchText: {
-        type: "string",
-        description: "Text to search for in notes (optional - if not provided, returns all notes)"
-      }
-    }
-  }
-};
-
-const MESSAGES_TOOL: Tool = {
-  name: "messages",
-  description: "Interact with Apple Messages app - send, read, schedule messages and check unread messages",
-  inputSchema: {
-    type: "object",
-    properties: {
-      operation: {
-        type: "string",
-        description: "Operation to perform: 'send', 'read', 'schedule', or 'unread'",
-        enum: ["send", "read", "schedule", "unread"]
-      },
-      phoneNumber: {
-        type: "string",
-        description: "Phone number to send message to (required for send, read, and schedule operations)"
-      },
-      message: {
-        type: "string",
-        description: "Message to send (required for send and schedule operations)"
-      },
-      limit: {
-        type: "number",
-        description: "Number of messages to read (optional, for read and unread operations)"
-      },
-      scheduledTime: {
-        type: "string",
-        description: "ISO string of when to send the message (required for schedule operation)"
-      }
-    },
-    required: ["operation"]
-  }
-};
-
-const MAIL_TOOL: Tool = {
-  name: "mail",
-  description: "Interact with Apple Mail app - read unread emails, search emails, and send emails",
-  inputSchema: {
-    type: "object",
-    properties: {
-      operation: {
-        type: "string",
-        description: "Operation to perform: 'unread', 'search', 'send', 'mailboxes', or 'accounts'",
-        enum: ["unread", "search", "send", "mailboxes", "accounts"]
-      },
-      account: {
-        type: "string",
-        description: "Email account to use (optional - if not provided, searches across all accounts)"
-      },
-      mailbox: {
-        type: "string",
-        description: "Mailbox to use (optional - if not provided, uses inbox or searches across all mailboxes)"
-      },
-      limit: {
-        type: "number",
-        description: "Number of emails to retrieve (optional, for unread and search operations)"
-      },
-      searchTerm: {
-        type: "string",
-        description: "Text to search for in emails (required for search operation)"
-      },
-      to: {
-        type: "string",
-        description: "Recipient email address (required for send operation)"
-      },
-      subject: {
-        type: "string",
-        description: "Email subject (required for send operation)"
-      },
-      body: {
-        type: "string",
-        description: "Email body content (required for send operation)"
-      },
-      cc: {
-        type: "string",
-        description: "CC email address (optional for send operation)"
-      },
-      bcc: {
-        type: "string",
-        description: "BCC email address (optional for send operation)"
-      }
-    },
-    required: ["operation"]
-  }
-};
-
-const REMINDERS_TOOL: Tool = {
-  name: "reminders",
-  description: "Search, create, and open reminders in Apple Reminders app",
-  inputSchema: {
-    type: "object",
-    properties: {
-      operation: {
-        type: "string",
-        description: "Operation to perform: 'list', 'search', 'open', 'create', or 'listById'",
-        enum: ["list", "search", "open", "create", "listById"]
-      },
-      searchText: {
-        type: "string",
-        description: "Text to search for in reminders (required for search and open operations)"
-      },
-      name: {
-        type: "string",
-        description: "Name of the reminder to create (required for create operation)"
-      },
-      listName: {
-        type: "string",
-        description: "Name of the list to create the reminder in (optional for create operation)"
-      },
-      listId: {
-        type: "string",
-        description: "ID of the list to get reminders from (required for listById operation)"
-      },
-      props: {
-        type: "array",
-        items: {
-          type: "string"
-        },
-        description: "Properties to include in the reminders (optional for listById operation)"
-      },
-      notes: {
-        type: "string",
-        description: "Additional notes for the reminder (optional for create operation)"
-      },
-      dueDate: {
-        type: "string",
-        description: "Due date for the reminder in ISO format (optional for create operation)"
-      }
-    },
-    required: ["operation"]
-  }
-};
-
 // Main server object
 let server: Server;
 
@@ -308,7 +188,7 @@ function initServer() {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [CONTACTS_TOOL, NOTES_TOOL, MESSAGES_TOOL, MAIL_TOOL, REMINDERS_TOOL],
+    tools
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -326,8 +206,6 @@ function initServer() {
           }
 
           try {
-            // Always load the module using our helper function - will either use the eager loaded version
-            // or lazy load if in safe mode
             const contactsModule = await loadModule('contacts');
             
             if (args.name) {
@@ -356,8 +234,8 @@ function initServer() {
               }
 
               const formattedContacts = Object.entries(allNumbers)
-                .filter(([_, phones]: [string, any]) => phones.length > 0)
-                .map(([name, phones]: [string, any]) => `${name}: ${phones.join(", ")}`);
+                .filter(([_, phones]) => phones.length > 0)
+                .map(([name, phones]) => `${name}: ${phones.join(", ")}`);
 
               return {
                 content: [{
@@ -394,7 +272,7 @@ function initServer() {
                 content: [{
                   type: "text",
                   text: foundNotes.length ?
-                    foundNotes.map((note: any) => `${note.name}:\n${note.content}`).join("\n\n") :
+                    foundNotes.map(note => `${note.name}:\n${note.content}`).join("\n\n") :
                     `No notes found for "${args.searchText}"`
                 }],
                 isError: false
@@ -451,7 +329,7 @@ function initServer() {
                   content: [{ 
                     type: "text", 
                     text: messages.length > 0 ? 
-                      messages.map((msg: any) => 
+                      messages.map(msg => 
                         `[${new Date(msg.date).toLocaleString()}] ${msg.is_from_me ? 'Me' : msg.sender}: ${msg.content}`
                       ).join("\n") :
                       "No messages found"
@@ -484,7 +362,7 @@ function initServer() {
                 // Look up contact names for all messages
                 const contactsModule = await loadModule('contacts');
                 const messagesWithNames = await Promise.all(
-                  messages.map(async (msg: any) => {
+                  messages.map(async msg => {
                     // Only look up names for messages not from me
                     if (!msg.is_from_me) {
                       const contactName = await contactsModule.findContactByPhone(msg.sender);
@@ -505,7 +383,7 @@ function initServer() {
                     type: "text", 
                     text: messagesWithNames.length > 0 ? 
                       `Found ${messagesWithNames.length} unread message(s):\n` +
-                      messagesWithNames.map((msg: any) => 
+                      messagesWithNames.map(msg => 
                         `[${new Date(msg.date).toLocaleString()}] From ${msg.displayName}:\n${msg.content}`
                       ).join("\n\n") :
                       "No unread messages found"
@@ -667,7 +545,7 @@ end tell`;
                     text: emails.length > 0 ? 
                       `Found ${emails.length} unread email(s)${args.account ? ` in account "${args.account}"` : ''}${args.mailbox ? ` and mailbox "${args.mailbox}"` : ''}:\n\n` +
                       emails.map((email: any) => 
-                        `[${email.dateSent}] From: ${email.sender}\nMailbox: ${email.mailbox}\nSubject: ${email.subject}\n${email.content.substring(0, 200)}${email.content.length > 200 ? '...' : ''}`
+                        `[${email.dateSent}] From: ${email.sender}\nMailbox: ${email.mailbox}\nSubject: ${email.subject}\n${email.content.substring(0, 500)}${email.content.length > 500 ? '...' : ''}`
                       ).join("\n\n") :
                       `No unread emails found${args.account ? ` in account "${args.account}"` : ''}${args.mailbox ? ` and mailbox "${args.mailbox}"` : ''}`
                   }],
@@ -679,10 +557,7 @@ end tell`;
                 if (!args.searchTerm) {
                   throw new Error("Search term is required for search operation");
                 }
-                
-                // The rest of this case would be similar to the original code
                 const emails = await mailModule.searchMails(args.searchTerm, args.limit);
-                
                 return {
                   content: [{ 
                     type: "text", 
@@ -701,7 +576,6 @@ end tell`;
                 if (!args.to || !args.subject || !args.body) {
                   throw new Error("Recipient (to), subject, and body are required for send operation");
                 }
-                
                 const result = await mailModule.sendMail(args.to, args.subject, args.body, args.cc, args.bcc);
                 return {
                   content: [{ type: "text", text: result }],
@@ -734,7 +608,7 @@ end tell`;
                   };
                 }
               }
-              
+
               case "accounts": {
                 const accounts = await mailModule.getAccounts();
                 return {
@@ -863,6 +737,24 @@ end tell`;
               isError: true
             };
           }
+        }
+
+        case "webSearch": {
+          if (!isWebSearchArgs(args)) {
+            throw new Error("Invalid arguments for web search tool");
+          }
+
+          const webSearchModule = await loadModule('webSearch');
+          const result = await webSearchModule.webSearch(args.query);
+          return {
+            content: [{
+              type: "text",
+              text: result.results.length > 0 ? 
+                `Found ${result.results.length} results for "${args.query}". ${result.results.map(r => `[${r.displayUrl}] ${r.title} - ${r.snippet} \n content: ${r.content}`).join("\n")}` : 
+                `No results found for "${args.query}".`
+            }],
+            isError: false
+          };
         }
 
         default:
@@ -1059,4 +951,12 @@ function isRemindersArgs(args: unknown): args is {
   }
 
   return true;
+}
+
+function isWebSearchArgs(args: unknown): args is WebSearchArgs {
+  return (
+    typeof args === "object" &&
+    args !== null &&
+    typeof (args as WebSearchArgs).query === "string"
+  );
 }
