@@ -1,4 +1,6 @@
-![image](https://github.com/user-attachments/assets/a12ac722-dfc0-4ee4-86b4-497638f946f8)# Apple MCP tools
+![image](https://github.com/user-attachments/assets/a12ac722-dfc0-4ee4-86b4-497638f946f8)
+# Apple MCP tools
+[![smithery badge](https://smithery.ai/badge/@Dhravya/apple-mcp)](https://smithery.ai/server/@Dhravya/apple-mcp)
 
 This is a collection of apple-native tools for the [MCP protocol](https://modelcontextprotocol.com/docs/mcp-protocol).
 
@@ -58,6 +60,8 @@ You can also daisy-chain commands to create a workflow. Like:
 
 ### Installation
 
+#### Manual
+
 You just need bun, install with `brew install oven-sh/bun/bun`
 
 Now, edit your `claude_desktop_config.json` with this:
@@ -71,6 +75,14 @@ Now, edit your `claude_desktop_config.json` with this:
     }
   }
 }
+```
+
+#### Smithery
+
+To install Apple MCP for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@Dhravya/apple-mcp):
+
+```bash
+npx -y @smithery/cli@latest install @Dhravya/apple-mcp --client claude
 ```
 
 Now, ask Claude to use the `apple-mcp` tool.
