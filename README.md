@@ -85,6 +85,8 @@ To install Apple MCP for Claude Desktop automatically via [Smithery](https://smi
 npx -y @smithery/cli@latest install @Dhravya/apple-mcp --client claude
 ```
 
+### Usage
+
 Now, ask Claude to use the `apple-mcp` tool.
 
 ```
