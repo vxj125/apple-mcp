@@ -1,7 +1,13 @@
 import { run } from '@jxa/run';
 
+type Note = {
+    name: string;
+    content: string;
+};
+  
+
 async function getAllNotes() {
-    const notes: { [key: string]: string } = await run(() => {
+    const notes: Note[] = await run(() => {
         const Notes = Application('Notes');
         const notes = Notes.notes();
 
@@ -16,7 +22,7 @@ async function getAllNotes() {
 
 
 async function findNote(searchText: string) {
-    const notes: { name: string, content: string }[] = await run((searchText: string) => {
+    const notes: Note[] = await run((searchText: string) => {
         const Notes = Application('Notes');
         const notes = Notes.notes.whose({_or: [
             {name: {_contains: searchText}},
@@ -30,12 +36,12 @@ async function findNote(searchText: string) {
 
     if (notes.length === 0) {
         const allNotes = await getAllNotes();
-        const closestMatch = Object.entries(allNotes).find(([name]) => 
+        const closestMatch = allNotes.find(({name}) => 
             name.toLowerCase().includes(searchText.toLowerCase())
         );
         return closestMatch ? [{
-            name: closestMatch[0],
-            content: closestMatch[1]
+            name: closestMatch.name,
+            content: closestMatch.content
         }] : [];
     }
 

@@ -279,12 +279,14 @@ function initServer() {
               };
             } else {
               const allNotes = await notesModule.getAllNotes();
+
               return {
                 content: [{
                   type: "text",
-                  text: Object.entries(allNotes)
-                    .map(([name, content]) => `${name}:\n${content}`)
-                    .join("\n\n")
+                  text: allNotes.length ?
+                    allNotes.map((note) => `${note.name}:\n${note.content}`)
+                    .join("\n\n") : 
+                    "No notes exist."
                 }],
                 isError: false
               };
