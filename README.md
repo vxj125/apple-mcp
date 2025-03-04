@@ -1,10 +1,13 @@
 # Apple MCP tools
 
+[![smithery badge](https://smithery.ai/badge/@Dhravya/apple-mcp)](https://smithery.ai/server/@Dhravya/apple-mcp)
+
 This is a collection of apple-native tools for the [MCP protocol](https://modelcontextprotocol.com/docs/mcp-protocol).
 
 Here's a step-by-step video about how to set this up, with a demo. - https://x.com/DhravyaShah/status/1892694077679763671
 
-![Setup](https://i.dhr.wtf/r/Clipboard_Feb_26,_2025_at_11.20 PM.png)
+![image](https://github.com/user-attachments/assets/56a5ccfa-cb1a-4226-80c5-6cc794cefc34)
+
 
 <details>
 <summary>Here's the JSON to copy</summary>
@@ -14,13 +17,27 @@ Here's a step-by-step video about how to set this up, with a demo. - https://x.c
   "mcpServers": {
     "apple-mcp": {
       "command": "bunx",
-      "args": ["--no-cache", "@dhravya/apple-mcp@latest"]
+      "args": ["--no-cache", "apple-mcp@latest"]
     }
-  }
 }
+
 ```
 
 </details>
+
+#### Quick install
+
+To install Apple MCP for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@Dhravya/apple-mcp):
+
+```bash
+npx -y @smithery/cli@latest install @Dhravya/apple-mcp --client claude
+```
+
+... and for cursor, you can do:
+
+```bash
+npx -y @smithery/cli@latest install @Dhravya/apple-mcp --client cursor
+```
 
 
 ## Features
@@ -55,7 +72,8 @@ You can also daisy-chain commands to create a workflow. Like:
 
 (it works!)
 
-### Installation
+
+#### Manual installation
 
 You just need bun, install with `brew install oven-sh/bun/bun`
 
@@ -71,6 +89,8 @@ Now, edit your `claude_desktop_config.json` with this:
   }
 }
 ```
+
+### Usage
 
 Now, ask Claude to use the `apple-mcp` tool.
 
