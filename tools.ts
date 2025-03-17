@@ -174,7 +174,42 @@ const CONTACTS_TOOL: Tool = {
     }
   };
   
+const CALENDAR_TOOL: Tool = {
+  name: "calendar",
+  description: "Search and open calendar events in Apple Calendar app",
+  inputSchema: {
+    type: "object",
+    properties: {
+      operation: {
+        type: "string",
+        description: "Operation to perform: 'search', 'open', or 'list'",
+        enum: ["search", "open", "list"]
+      },
+      searchText: {
+        type: "string",
+        description: "Text to search for in event titles, locations, and notes (required for search operation)"
+      },
+      eventId: {
+        type: "string",
+        description: "ID of the event to open (required for open operation)"
+      },
+      limit: {
+        type: "number",
+        description: "Number of events to retrieve (optional, default 10)"
+      },
+      fromDate: {
+        type: "string",
+        description: "Start date for search range in ISO format (optional, default is today)"
+      },
+      toDate: {
+        type: "string",
+        description: "End date for search range in ISO format (optional, default is 30 days from now for search, 7 days for list)"
+      }
+    },
+    required: ["operation"]
+  }
+};
   
-const tools = [CONTACTS_TOOL, NOTES_TOOL, MESSAGES_TOOL, MAIL_TOOL, REMINDERS_TOOL, WEB_SEARCH_TOOL];
+const tools = [CONTACTS_TOOL, NOTES_TOOL, MESSAGES_TOOL, MAIL_TOOL, REMINDERS_TOOL, WEB_SEARCH_TOOL, CALENDAR_TOOL];
 
 export default tools;
