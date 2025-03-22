@@ -440,11 +440,129 @@ async function getEvents(
     }
 }
 
+/**
+ * Create a new calendar event
+ * @param title Title of the event
+ * @param startDate Start date/time in ISO format
+ * @param endDate End date/time in ISO format
+ * @param location Optional location of the event
+ * @param notes Optional notes for the event
+ * @param isAllDay Optional flag to create an all-day event
+ * @param calendarName Optional calendar name to add the event to (uses default if not specified)
+ * @returns Result object indicating success or failure, including the created event ID
+ */
+async function createEvent(
+    title: string,
+    startDate: string,
+    endDate: string,
+    location?: string,
+    notes?: string,
+    isAllDay: boolean = false,
+    calendarName?: string
+): Promise<{ success: boolean; message: string; eventId?: string }> {
+    try {
+        if (!await checkCalendarAccess()) {
+            return {
+                success: false,
+                message: "Cannot access Calendar app. Please grant access in System Settings > Privacy & Security > Automation."
+            };
+        }
+
+        console.error(`createEvent - Attempting to create event: "${title}"`);
+
+        const result = await run((args: {
+            title: string,
+            startDate: string,
+            endDate: string,
+            location?: string,
+            notes?: string,
+            isAllDay: boolean,
+            calendarName?: string
+        }) => {
+            try {
+                const Calendar = Application("Calendar");
+                
+                // Parse dates
+                const startDateTime = new Date(args.startDate);
+                const endDateTime = new Date(args.endDate);
+                
+                // Find the target calendar
+                let targetCalendar;
+                if (args.calendarName) {
+                    // Find the specified calendar
+                    const calendars = Calendar.calendars.whose({
+                        name: { _equals: args.calendarName }
+                    });
+                    
+                    if (calendars.length > 0) {
+                        targetCalendar = calendars[0];
+                    } else {
+                        return {
+                            success: false,
+                            message: `Calendar "${args.calendarName}" not found.`
+                        };
+                    }
+                } else {
+                    // Use default calendar
+                    // Calendar.defaultCalendar() doesn't exist - get the first calendar instead
+                    const allCalendars = Calendar.calendars();
+                    if (allCalendars.length === 0) {
+                        return {
+                            success: false,
+                            message: "No calendars found in Calendar app."
+                        };
+                    }
+                    targetCalendar = allCalendars[0];
+                }
+                
+                // Create the new event
+                const newEvent = Calendar.Event({
+                    summary: args.title,
+                    startDate: startDateTime,
+                    endDate: endDateTime,
+                    location: args.location || "",
+                    description: args.notes || "",
+                    alldayEvent: args.isAllDay
+                });
+                
+                // Add the event to the calendar
+                targetCalendar.events.push(newEvent);
+                
+                return {
+                    success: true,
+                    message: `Event "${args.title}" created successfully.`,
+                    eventId: newEvent.uid()
+                };
+            } catch (e) {
+                return {
+                    success: false,
+                    message: `Error creating event: ${e instanceof Error ? e.message : String(e)}`
+                };
+            }
+        }, {
+            title,
+            startDate,
+            endDate,
+            location,
+            notes,
+            isAllDay,
+            calendarName
+        }) as { success: boolean; message: string; eventId?: string };
+        
+        return result;
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error creating event: ${error instanceof Error ? error.message : String(error)}`
+        };
+    }
+}
 
 const calendar = {
     searchEvents,
     openEvent,
-    getEvents
+    getEvents,
+    createEvent
 };
 
 export default calendar; 

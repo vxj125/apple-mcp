@@ -823,6 +823,20 @@ end tell`;
                 };
               }
               
+              case "create": {
+                const { title, startDate, endDate, location, notes, isAllDay, calendarName } = args;
+                const result = await calendarModule.createEvent(title!, startDate!, endDate!, location, notes, isAllDay, calendarName);
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.success ? 
+                      `${result.message} Event scheduled from ${new Date(startDate!).toLocaleString()} to ${new Date(endDate!).toLocaleString()}${result.eventId ? `\nEvent ID: ${result.eventId}` : ''}` : 
+                      `Error creating event: ${result.message}`
+                  }],
+                  isError: !result.success
+                };
+              }
+              
               default:
                 throw new Error(`Unknown calendar operation: ${operation}`);
             }
@@ -1042,12 +1056,19 @@ function isWebSearchArgs(args: unknown): args is WebSearchArgs {
 }
 
 function isCalendarArgs(args: unknown): args is {
-  operation: "search" | "open" | "list";
+  operation: "search" | "open" | "list" | "create";
   searchText?: string;
   eventId?: string;
   limit?: number;
   fromDate?: string;
   toDate?: string;
+  title?: string;
+  startDate?: string;
+  endDate?: string;
+  location?: string;
+  notes?: string;
+  isAllDay?: boolean;
+  calendarName?: string;
 } {
   if (typeof args !== "object" || args === null) {
     return false;
@@ -1058,7 +1079,7 @@ function isCalendarArgs(args: unknown): args is {
     return false;
   }
 
-  if (!["search", "open", "list"].includes(operation)) {
+  if (!["search", "open", "list", "create"].includes(operation)) {
     return false;
   }
 
@@ -1073,6 +1094,18 @@ function isCalendarArgs(args: unknown): args is {
   if (operation === "open") {
     const { eventId } = args as { eventId?: unknown };
     if (typeof eventId !== "string") {
+      return false;
+    }
+  }
+
+  if (operation === "create") {
+    const { title, startDate, endDate } = args as { 
+      title?: unknown; 
+      startDate?: unknown; 
+      endDate?: unknown;
+    };
+    
+    if (typeof title !== "string" || typeof startDate !== "string" || typeof endDate !== "string") {
       return false;
     }
   }

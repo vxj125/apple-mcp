@@ -176,14 +176,14 @@ const CONTACTS_TOOL: Tool = {
   
 const CALENDAR_TOOL: Tool = {
   name: "calendar",
-  description: "Search and open calendar events in Apple Calendar app",
+  description: "Search, create, and open calendar events in Apple Calendar app",
   inputSchema: {
     type: "object",
     properties: {
       operation: {
         type: "string",
-        description: "Operation to perform: 'search', 'open', or 'list'",
-        enum: ["search", "open", "list"]
+        description: "Operation to perform: 'search', 'open', 'list', or 'create'",
+        enum: ["search", "open", "list", "create"]
       },
       searchText: {
         type: "string",
@@ -204,6 +204,34 @@ const CALENDAR_TOOL: Tool = {
       toDate: {
         type: "string",
         description: "End date for search range in ISO format (optional, default is 30 days from now for search, 7 days for list)"
+      },
+      title: {
+        type: "string",
+        description: "Title of the event to create (required for create operation)"
+      },
+      startDate: {
+        type: "string",
+        description: "Start date/time of the event in ISO format (required for create operation)"
+      },
+      endDate: {
+        type: "string",
+        description: "End date/time of the event in ISO format (required for create operation)"
+      },
+      location: {
+        type: "string",
+        description: "Location of the event (optional for create operation)"
+      },
+      notes: {
+        type: "string",
+        description: "Additional notes for the event (optional for create operation)"
+      },
+      isAllDay: {
+        type: "boolean",
+        description: "Whether the event is an all-day event (optional for create operation, default is false)"
+      },
+      calendarName: {
+        type: "string",
+        description: "Name of the calendar to create the event in (optional for create operation, uses default calendar if not specified)"
       }
     },
     required: ["operation"]
