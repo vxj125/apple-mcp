@@ -26,6 +26,7 @@ let message: typeof import('./utils/message').default | null = null;
 let mail: typeof import('./utils/mail').default | null = null;
 let reminders: typeof import('./utils/reminders').default | null = null;
 let webSearch: typeof import('./utils/webSearch').default | null = null;
+let calendar: typeof import('./utils/calendar').default | null = null;
 
 // Type map for module names to their types
 type ModuleMap = {
@@ -35,10 +36,11 @@ type ModuleMap = {
   mail: typeof import('./utils/mail').default;
   reminders: typeof import('./utils/reminders').default;
   webSearch: typeof import('./utils/webSearch').default;
+  calendar: typeof import('./utils/calendar').default;
 };
 
 // Helper function for lazy module loading
-async function loadModule<T extends 'contacts' | 'notes' | 'message' | 'mail' | 'reminders' | 'webSearch'>(moduleName: T): Promise<ModuleMap[T]> {
+async function loadModule<T extends 'contacts' | 'notes' | 'message' | 'mail' | 'reminders' | 'webSearch' | 'calendar'>(moduleName: T): Promise<ModuleMap[T]> {
   if (safeModeFallback) {
     console.error(`Loading ${moduleName} module on demand (safe mode)...`);
   }
@@ -63,12 +65,15 @@ async function loadModule<T extends 'contacts' | 'notes' | 'message' | 'mail' | 
       case 'webSearch':
         if (!webSearch) webSearch = (await import('./utils/webSearch')).default;
         return webSearch as ModuleMap[T];
+      case 'calendar':
+        if (!calendar) calendar = (await import('./utils/calendar')).default;
+        return calendar as ModuleMap[T];
       default:
         throw new Error(`Unknown module: ${moduleName}`);
     }
-  } catch (error) {
-    console.error(`Error loading ${moduleName} module:`, error);
-    throw error;
+  } catch (e) {
+    console.error(`Error loading module ${moduleName}:`, e);
+    throw e;
   }
 }
 
@@ -84,6 +89,8 @@ loadingTimeout = setTimeout(() => {
   message = null;
   mail = null;
   reminders = null;
+  webSearch = null;
+  calendar = null;
   
   // Proceed with server setup
   initServer();
@@ -109,6 +116,12 @@ async function attemptEagerLoading() {
     
     reminders = (await import('./utils/reminders')).default;
     console.error("- Reminders module loaded successfully");
+
+    webSearch = (await import('./utils/webSearch')).default;
+    console.error("- WebSearch module loaded successfully");
+    
+    calendar = (await import('./utils/calendar')).default;
+    console.error("- Calendar module loaded successfully");
     
     // If we get here, clear the timeout and proceed with eager loading
     if (loadingTimeout) {
@@ -138,6 +151,8 @@ async function attemptEagerLoading() {
     message = null;
     mail = null;
     reminders = null;
+    webSearch = null;
+    calendar = null;
     
     // Initialize the server in safe mode
     initServer();
@@ -738,6 +753,104 @@ end tell`;
           };
         }
 
+        case "calendar": {
+          if (!isCalendarArgs(args)) {
+            throw new Error("Invalid arguments for calendar tool");
+          }
+          
+          try {
+            const calendarModule = await loadModule("calendar");
+            const { operation } = args;
+            
+            
+            switch (operation) {
+              case "search": {
+                const { searchText, limit, fromDate, toDate } = args;
+                const events = await calendarModule.searchEvents(searchText!, limit, fromDate, toDate);
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: events.length > 0 ? 
+                      `Found ${events.length} events matching "${searchText}":\n\n${events.map(event => 
+                        `${event.title} (${new Date(event.startDate!).toLocaleString()} - ${new Date(event.endDate!).toLocaleString()})\n` +
+                        `Location: ${event.location || 'Not specified'}\n` +
+                        `Calendar: ${event.calendarName}\n` +
+                        `ID: ${event.id}\n` +
+                        `${event.notes ? `Notes: ${event.notes}\n` : ''}`
+                      ).join("\n\n")}` : 
+                      `No events found matching "${searchText}".`
+                  }],
+                  isError: false
+                };
+              }
+              
+              case "open": {
+                const { eventId } = args;
+                const result = await calendarModule.openEvent(eventId!);
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.success ? 
+                      result.message : 
+                      `Error opening event: ${result.message}`
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              case "list": {
+                const { limit, fromDate, toDate } = args;
+                const events = await calendarModule.getEvents(limit, fromDate, toDate);
+                
+                const startDateText = fromDate ? new Date(fromDate).toLocaleDateString() : 'today';
+                const endDateText = toDate ? new Date(toDate).toLocaleDateString() : 'next 7 days';
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: events.length > 0 ? 
+                      `Found ${events.length} events from ${startDateText} to ${endDateText}:\n\n${events.map(event => 
+                        `${event.title} (${new Date(event.startDate!).toLocaleString()} - ${new Date(event.endDate!).toLocaleString()})\n` +
+                        `Location: ${event.location || 'Not specified'}\n` +
+                        `Calendar: ${event.calendarName}\n` +
+                        `ID: ${event.id}`
+                      ).join("\n\n")}` : 
+                      `No events found from ${startDateText} to ${endDateText}.`
+                  }],
+                  isError: false
+                };
+              }
+              
+              case "create": {
+                const { title, startDate, endDate, location, notes, isAllDay, calendarName } = args;
+                const result = await calendarModule.createEvent(title!, startDate!, endDate!, location, notes, isAllDay, calendarName);
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.success ? 
+                      `${result.message} Event scheduled from ${new Date(startDate!).toLocaleString()} to ${new Date(endDate!).toLocaleString()}${result.eventId ? `\nEvent ID: ${result.eventId}` : ''}` : 
+                      `Error creating event: ${result.message}`
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              default:
+                throw new Error(`Unknown calendar operation: ${operation}`);
+            }
+          } catch (error) {
+            return {
+              content: [{
+                type: "text",
+                text: `Error in calendar tool: ${error instanceof Error ? error.message : String(error)}`
+              }],
+              isError: true
+            };
+          }
+        }
+
         default:
           return {
             content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -940,4 +1053,62 @@ function isWebSearchArgs(args: unknown): args is WebSearchArgs {
     args !== null &&
     typeof (args as WebSearchArgs).query === "string"
   );
+}
+
+function isCalendarArgs(args: unknown): args is {
+  operation: "search" | "open" | "list" | "create";
+  searchText?: string;
+  eventId?: string;
+  limit?: number;
+  fromDate?: string;
+  toDate?: string;
+  title?: string;
+  startDate?: string;
+  endDate?: string;
+  location?: string;
+  notes?: string;
+  isAllDay?: boolean;
+  calendarName?: string;
+} {
+  if (typeof args !== "object" || args === null) {
+    return false;
+  }
+
+  const { operation } = args as { operation?: unknown };
+  if (typeof operation !== "string") {
+    return false;
+  }
+
+  if (!["search", "open", "list", "create"].includes(operation)) {
+    return false;
+  }
+
+  // Check that required parameters are present for each operation
+  if (operation === "search") {
+    const { searchText } = args as { searchText?: unknown };
+    if (typeof searchText !== "string") {
+      return false;
+    }
+  }
+
+  if (operation === "open") {
+    const { eventId } = args as { eventId?: unknown };
+    if (typeof eventId !== "string") {
+      return false;
+    }
+  }
+
+  if (operation === "create") {
+    const { title, startDate, endDate } = args as { 
+      title?: unknown; 
+      startDate?: unknown; 
+      endDate?: unknown;
+    };
+    
+    if (typeof title !== "string" || typeof startDate !== "string" || typeof endDate !== "string") {
+      return false;
+    }
+  }
+
+  return true;
 }
