@@ -6,6 +6,10 @@ This is a collection of apple-native tools for the [MCP protocol](https://modelc
 
 Here's a step-by-step video about how to set this up, with a demo. - https://x.com/DhravyaShah/status/1892694077679763671
 
+<a href="https://glama.ai/mcp/servers/gq2qg6kxtu">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/gq2qg6kxtu/badge" alt="Apple Server MCP server" />
+</a>
+
 ![image](https://github.com/user-attachments/assets/56a5ccfa-cb1a-4226-80c5-6cc794cefc34)
 
 
