@@ -1,7 +1,7 @@
 import {runAppleScript} from 'run-applescript';
-import { promisify } from 'util';
-import { exec } from 'child_process';
-import { access } from 'fs/promises';
+import { promisify } from 'node:util';
+import { exec } from 'node:child_process';
+import { access } from 'node:fs/promises';
 
 const execAsync = promisify(exec);
 
@@ -81,7 +81,7 @@ interface Message {
 
 async function checkMessagesDBAccess(): Promise<boolean> {
     try {
-        const dbPath = process.env.HOME + '/Library/Messages/chat.db';
+        const dbPath = `${process.env.HOME}/Library/Messages/chat.db`;
         await access(dbPath);
         
         // Additional check - try to query the database
@@ -126,7 +126,7 @@ function decodeAttributedBody(hexString: string): { text: string; url?: string }
         let text = '';
         for (const pattern of patterns) {
             const match = content.match(pattern);
-            if (match && match[1]) {
+            if (match?.[1]) {
                 text = match[1];
                 if (text.length > 5) { // Only use if we got something substantial
                     break;
@@ -145,7 +145,7 @@ function decodeAttributedBody(hexString: string): { text: string; url?: string }
         let url: string | undefined;
         for (const pattern of urlPatterns) {
             const match = content.match(pattern);
-            if (match && match[1]) {
+            if (match?.[1]) {
                 url = match[1];
                 break;
             }
@@ -210,7 +210,7 @@ async function getAttachmentPaths(messageId: number): Promise<string[]> {
     }
 }
 
-async function readMessages(phoneNumber: string, limit: number = 10): Promise<Message[]> {
+async function readMessages(phoneNumber: string, limit = 10): Promise<Message[]> {
     try {
         // Check database access with retries
         const hasAccess = await retryOperation(checkMessagesDBAccess);
@@ -316,13 +316,13 @@ async function readMessages(phoneNumber: string, limit: number = 10): Promise<Me
                     // Add attachments if any
                     if (attachments.length > 0) {
                         formattedMsg.attachments = attachments;
-                        formattedMsg.content += '\n[Attachments: ' + attachments.length + ']';
+                        formattedMsg.content += `\n[Attachments: ${attachments.length}]`;
                     }
 
                     // Add URL if present
                     if (url) {
                         formattedMsg.url = url;
-                        formattedMsg.content += '\n[URL: ' + url + ']';
+                        formattedMsg.content += `\n[URL: ${url}]`;
                     }
 
                     return formattedMsg;
@@ -340,7 +340,7 @@ async function readMessages(phoneNumber: string, limit: number = 10): Promise<Me
     }
 }
 
-async function getUnreadMessages(limit: number = 10): Promise<Message[]> {
+async function getUnreadMessages(limit = 10): Promise<Message[]> {
     try {
         // Check database access with retries
         const hasAccess = await retryOperation(checkMessagesDBAccess);
@@ -439,13 +439,13 @@ async function getUnreadMessages(limit: number = 10): Promise<Message[]> {
                     // Add attachments if any
                     if (attachments.length > 0) {
                         formattedMsg.attachments = attachments;
-                        formattedMsg.content += '\n[Attachments: ' + attachments.length + ']';
+                        formattedMsg.content += `\n[Attachments: ${attachments.length}]`;
                     }
 
                     // Add URL if present
                     if (url) {
                         formattedMsg.url = url;
-                        formattedMsg.content += '\n[URL: ' + url + ']';
+                        formattedMsg.content += `\n[URL: ${url}]`;
                     }
 
                     return formattedMsg;

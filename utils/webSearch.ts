@@ -71,7 +71,7 @@ async function makeRequest(
       }
       
       // Wait before retry (exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+      await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt));
     }
   }
   
@@ -235,7 +235,7 @@ function extractMainContent(content: string): string {
   
   try {
     // Remove common non-content elements
-    let cleanedContent = content
+    const cleanedContent = content
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
       .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ")
       .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, " ")

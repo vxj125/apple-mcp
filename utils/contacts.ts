@@ -10,7 +10,7 @@ tell application "Contacts"
 end tell`);
         return true;
     } catch (error) {
-        throw new Error(`Cannot access Contacts app. Please grant access in System Preferences > Security & Privacy > Privacy > Contacts.`);
+        throw new Error("Cannot access Contacts app. Please grant access in System Preferences > Security & Privacy > Privacy > Contacts.");
     }
 }
 
@@ -28,7 +28,7 @@ async function getAllNumbers() {
             for (const person of people) {
                 try {
                     const name = person.name();
-                    const phones = person.phones().map((phone: any) => phone.value());
+                    const phones = person.phones().map((phone: unknown) => (phone as { value: string }).value);
 
                     if (!phoneNumbers[name]) {
                         phoneNumbers[name] = [];
@@ -58,7 +58,7 @@ async function findNumber(name: string) {
             const Contacts = Application('Contacts');
             const people = Contacts.people.whose({name: {_contains: name}});
             const phones = people.length > 0 ? people[0].phones() : [];
-            return phones.map((phone: any) => phone.value());
+            return phones.map((phone: unknown) => (phone as { value: string }).value);
         }, name);
 
         // If no numbers found, run getNumbers() to find the closest match

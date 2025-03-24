@@ -11,6 +11,7 @@ async function getAllNotes() {
         const Notes = Application('Notes');
         const notes = Notes.notes();
 
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         return notes.map((note: any) => ({
             name: note.name(),
             content: note.plaintext()
@@ -28,6 +29,7 @@ async function findNote(searchText: string) {
             {name: {_contains: searchText}},
             {plaintext: {_contains: searchText}}
         ]})()
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         return notes.length > 0 ? notes.map((note: any) => ({
             name: note.name(),
             content: note.plaintext()
