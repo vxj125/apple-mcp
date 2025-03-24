@@ -59,7 +59,7 @@ async function checkCalendarAccess(): Promise<boolean> {
  */
 async function searchEvents(
     searchText: string, 
-    limit: number = 10, 
+    limit = 10, 
     fromDate?: string, 
     toDate?: string
 ): Promise<CalendarEvent[]> {
@@ -176,13 +176,11 @@ async function searchEvents(
                             } catch (e) {
                                 // Skip events we can't process
                                 console.log("searchEvents - Error processing events: ----0----", JSON.stringify(e));
-                                continue;
                             }
                         }
                     } catch (e) {
                         // Skip calendars we can't access
                         console.log("searchEvents - Error processing calendars: ----1----", JSON.stringify(e));
-                        continue;
                     }
                 }
                 
@@ -263,7 +261,6 @@ async function openEvent(eventId: string): Promise<{ success: boolean; message: 
                     } catch (e) {
                         // Skip calendars we can't access
                         console.log("openEvent - Error processing calendars: ----2----", JSON.stringify(e));
-                        continue;
                     }
                 }
                 
@@ -299,7 +296,7 @@ async function openEvent(eventId: string): Promise<{ success: boolean; message: 
  * @returns Array of calendar events in the specified date range
  */
 async function getEvents(
-    limit: number = 10, 
+    limit = 10, 
     fromDate?: string, 
     toDate?: string
 ): Promise<CalendarEvent[]> {
@@ -406,13 +403,11 @@ async function getEvents(
                                 events.push(eventData);
                             } catch (e) {
                                 // Skip events we can't process
-                                continue;
                             }
                         }
                     } catch (e) {
                         // Skip calendars we can't access
                         console.log("getEvents - Error processing events: ----0----", JSON.stringify(e));
-                        continue;
                     }
                 }
                 return events;
@@ -457,7 +452,7 @@ async function createEvent(
     endDate: string,
     location?: string,
     notes?: string,
-    isAllDay: boolean = false,
+    isAllDay = false,
     calendarName?: string
 ): Promise<{ success: boolean; message: string; eventId?: string }> {
     try {
@@ -487,7 +482,8 @@ async function createEvent(
                 const endDateTime = new Date(args.endDate);
                 
                 // Find the target calendar
-                let targetCalendar;
+                // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+                let targetCalendar: any;
                 if (args.calendarName) {
                     // Find the specified calendar
                     const calendars = Calendar.calendars.whose({
