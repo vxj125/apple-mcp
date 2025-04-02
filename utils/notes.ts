@@ -56,6 +56,13 @@ async function findNote(searchText: string) {
 
 async function createNote(title: string, body: string, folderName: string = 'Claude'): Promise<CreateNoteResult> {
     try {
+        // Format the body with proper markdown
+        const formattedBody = body
+            .replace(/^(#+)\s+(.+)$/gm, '$1 $2\n') // Add newline after headers
+            .replace(/^-\s+(.+)$/gm, '\n- $1') // Add newline before list items
+            .replace(/\n{3,}/g, '\n\n') // Remove excess newlines
+            .trim();
+
         const result = await run((title: string, body: string, folderName: string) => {
             const Notes = Application('Notes');
             
@@ -117,7 +124,7 @@ async function createNote(title: string, body: string, folderName: string = 'Cla
             } catch (scriptError) {
                 throw new Error(`AppleScript error: ${scriptError.message || String(scriptError)}`);
             }
-        }, title, body, folderName);
+        }, title, formattedBody, folderName);
         
         return result;
     } catch (error) {
@@ -129,4 +136,3 @@ async function createNote(title: string, body: string, folderName: string = 'Cla
 }
 
 export default { getAllNotes, findNote, createNote };
-
