@@ -16,15 +16,33 @@ const CONTACTS_TOOL: Tool = {
   
   const NOTES_TOOL: Tool = {
     name: "notes", 
-    description: "Search and retrieve notes from Apple Notes app",
+    description: "Search, retrieve and create notes in Apple Notes app",
     inputSchema: {
       type: "object",
       properties: {
+        operation: {
+          type: "string",
+          description: "Operation to perform: 'search', 'list', or 'create'",
+          enum: ["search", "list", "create"]
+        },
         searchText: {
           type: "string",
-          description: "Text to search for in notes (optional - if not provided, returns all notes)"
+          description: "Text to search for in notes (required for search operation)"
+        },
+        title: {
+          type: "string",
+          description: "Title of the note to create (required for create operation)"
+        },
+        body: {
+          type: "string",
+          description: "Content of the note to create (required for create operation)"
+        },
+        folderName: {
+          type: "string",
+          description: "Name of the folder to create the note in (optional for create operation, defaults to 'Claude')"
         }
-      }
+      },
+      required: ["operation"]
     }
   };
   
@@ -238,6 +256,55 @@ const CALENDAR_TOOL: Tool = {
   }
 };
   
-const tools = [CONTACTS_TOOL, NOTES_TOOL, MESSAGES_TOOL, MAIL_TOOL, REMINDERS_TOOL, WEB_SEARCH_TOOL, CALENDAR_TOOL];
+const MAPS_TOOL: Tool = {
+  name: "maps",
+  description: "Search locations, manage guides, save favorites, and get directions using Apple Maps",
+  inputSchema: {
+    type: "object",
+    properties: {
+      operation: {
+        type: "string",
+        description: "Operation to perform with Maps",
+        enum: ["search", "save", "directions", "pin", "listGuides", "addToGuide", "createGuide"]
+      },
+      query: {
+        type: "string",
+        description: "Search query for locations (required for search)"
+      },
+      limit: {
+        type: "number",
+        description: "Maximum number of results to return (optional for search)"
+      },
+      name: {
+        type: "string",
+        description: "Name of the location (required for save and pin)"
+      },
+      address: {
+        type: "string",
+        description: "Address of the location (required for save, pin, addToGuide)"
+      },
+      fromAddress: {
+        type: "string",
+        description: "Starting address for directions (required for directions)"
+      },
+      toAddress: {
+        type: "string",
+        description: "Destination address for directions (required for directions)"
+      },
+      transportType: {
+        type: "string",
+        description: "Type of transport to use (optional for directions)",
+        enum: ["driving", "walking", "transit"]
+      },
+      guideName: {
+        type: "string",
+        description: "Name of the guide (required for createGuide and addToGuide)"
+      }
+    },
+    required: ["operation"]
+  }
+};
+
+const tools = [CONTACTS_TOOL, NOTES_TOOL, MESSAGES_TOOL, MAIL_TOOL, REMINDERS_TOOL, WEB_SEARCH_TOOL, CALENDAR_TOOL, MAPS_TOOL];
 
 export default tools;
