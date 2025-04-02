@@ -16,15 +16,33 @@ const CONTACTS_TOOL: Tool = {
   
   const NOTES_TOOL: Tool = {
     name: "notes", 
-    description: "Search and retrieve notes from Apple Notes app",
+    description: "Search, retrieve and create notes in Apple Notes app",
     inputSchema: {
       type: "object",
       properties: {
+        operation: {
+          type: "string",
+          description: "Operation to perform: 'search', 'list', or 'create'",
+          enum: ["search", "list", "create"]
+        },
         searchText: {
           type: "string",
-          description: "Text to search for in notes (optional - if not provided, returns all notes)"
+          description: "Text to search for in notes (required for search operation)"
+        },
+        title: {
+          type: "string",
+          description: "Title of the note to create (required for create operation)"
+        },
+        body: {
+          type: "string",
+          description: "Content of the note to create (required for create operation)"
+        },
+        folderName: {
+          type: "string",
+          description: "Name of the folder to create the note in (optional for create operation)"
         }
-      }
+      },
+      required: ["operation"]
     }
   };
   
