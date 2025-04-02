@@ -9,6 +9,8 @@ type CreateNoteResult = {
     success: boolean;
     note?: Note;
     message?: string;
+    folderName?: string;
+    usedDefaultFolder?: boolean;
 };
   
 async function getAllNotes() {
@@ -52,35 +54,43 @@ async function findNote(searchText: string) {
     return notes;
 }
 
-async function createNote(title: string, body: string, folderName?: string): Promise<CreateNoteResult> {
+async function createNote(title: string, body: string, folderName: string = 'Claude'): Promise<CreateNoteResult> {
     try {
-        const result = await run((title: string, body: string, folderName?: string) => {
+        const result = await run((title: string, body: string, folderName: string) => {
             const Notes = Application('Notes');
             
             // Create the note
             let targetFolder;
+            let usedDefaultFolder = false;
             
-            if (folderName) {
-                // Try to find the specified folder
-                const folders = Notes.folders();
-                targetFolder = folders.find((folder: any) => 
-                    folder.name() === folderName
-                );
-                
-                if (!targetFolder) {
+            // Try to find the specified folder
+            const folders = Notes.folders();
+            targetFolder = folders.find((folder: any) => 
+                folder.name() === folderName
+            );
+            
+            // If the specified folder doesn't exist
+            if (!targetFolder) {
+                if (folderName === 'Claude') {
+                    // Try to create the Claude folder if it doesn't exist
+                    try {
+                        targetFolder = Notes.Folder.make({withProperties: {name: 'Claude'}});
+                        usedDefaultFolder = true;
+                    } catch (error) {
+                        // If we can't create the Claude folder, use the default folder
+                        targetFolder = null;
+                    }
+                } else {
                     throw new Error(`Folder "${folderName}" not found`);
                 }
             }
             
             // Create the note in the specified folder or default folder
-            const newNote = Notes.Body.make();
-            newNote.name = title;
-            newNote.body = body;
-            
+            let newNote;
             if (targetFolder) {
-                Notes.Body.make({at: targetFolder, withProperties: {name: title, body: body}});
+                newNote = Notes.Body.make({at: targetFolder, withProperties: {name: title, body: body}});
             } else {
-                Notes.make({withProperties: {name: title, body: body}});
+                newNote = Notes.make({withProperties: {name: title, body: body}});
             }
             
             return {
@@ -88,7 +98,9 @@ async function createNote(title: string, body: string, folderName?: string): Pro
                 note: {
                     name: title,
                     content: body
-                }
+                },
+                folderName: targetFolder ? folderName : 'Default',
+                usedDefaultFolder: usedDefaultFolder
             };
         }, title, body, folderName);
         

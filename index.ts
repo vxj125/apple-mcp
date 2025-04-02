@@ -304,7 +304,7 @@ function initServer() {
                   content: [{
                     type: "text",
                     text: result.success ?
-                      `Created note "${args.title}"${args.folderName ? ` in folder "${args.folderName}"` : ''}.` :
+                      `Created note "${args.title}" in folder "${result.folderName}"${result.usedDefaultFolder ? ' (created new folder)' : ''}.` :
                       `Failed to create note: ${result.message}`
                   }],
                   isError: !result.success

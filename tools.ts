@@ -39,7 +39,7 @@ const CONTACTS_TOOL: Tool = {
         },
         folderName: {
           type: "string",
-          description: "Name of the folder to create the note in (optional for create operation)"
+          description: "Name of the folder to create the note in (optional for create operation, defaults to 'Claude')"
         }
       },
       required: ["operation"]
