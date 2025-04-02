@@ -27,6 +27,7 @@ let mail: typeof import('./utils/mail').default | null = null;
 let reminders: typeof import('./utils/reminders').default | null = null;
 let webSearch: typeof import('./utils/webSearch').default | null = null;
 let calendar: typeof import('./utils/calendar').default | null = null;
+let maps: typeof import('./utils/maps').default | null = null;
 
 // Type map for module names to their types
 type ModuleMap = {
@@ -37,10 +38,11 @@ type ModuleMap = {
   reminders: typeof import('./utils/reminders').default;
   webSearch: typeof import('./utils/webSearch').default;
   calendar: typeof import('./utils/calendar').default;
+  maps: typeof import('./utils/maps').default;
 };
 
 // Helper function for lazy module loading
-async function loadModule<T extends 'contacts' | 'notes' | 'message' | 'mail' | 'reminders' | 'webSearch' | 'calendar'>(moduleName: T): Promise<ModuleMap[T]> {
+async function loadModule<T extends 'contacts' | 'notes' | 'message' | 'mail' | 'reminders' | 'webSearch' | 'calendar' | 'maps'>(moduleName: T): Promise<ModuleMap[T]> {
   if (safeModeFallback) {
     console.error(`Loading ${moduleName} module on demand (safe mode)...`);
   }
@@ -68,6 +70,9 @@ async function loadModule<T extends 'contacts' | 'notes' | 'message' | 'mail' | 
       case 'calendar':
         if (!calendar) calendar = (await import('./utils/calendar')).default;
         return calendar as ModuleMap[T];
+      case 'maps':
+        if (!maps) maps = (await import('./utils/maps')).default;
+        return maps as ModuleMap[T];
       default:
         throw new Error(`Unknown module: ${moduleName}`);
     }
@@ -123,6 +128,9 @@ async function attemptEagerLoading() {
     calendar = (await import('./utils/calendar')).default;
     console.error("- Calendar module loaded successfully");
     
+    maps = (await import('./utils/maps')).default;
+    console.error("- Maps module loaded successfully");
+    
     // If we get here, clear the timeout and proceed with eager loading
     if (loadingTimeout) {
       clearTimeout(loadingTimeout);
@@ -153,6 +161,7 @@ async function attemptEagerLoading() {
     reminders = null;
     webSearch = null;
     calendar = null;
+    maps = null;
     
     // Initialize the server in safe mode
     initServer();
@@ -259,31 +268,60 @@ function initServer() {
 
           try {
             const notesModule = await loadModule('notes');
+            const { operation } = args;
             
-            if (args.searchText) {
-              const foundNotes = await notesModule.findNote(args.searchText);
-              return {
-                content: [{
-                  type: "text",
-                  text: foundNotes.length ?
-                    foundNotes.map(note => `${note.name}:\n${note.content}`).join("\n\n") :
-                    `No notes found for "${args.searchText}"`
-                }],
-                isError: false
-              };
-            } else {
-              const allNotes = await notesModule.getAllNotes();
-
-              return {
-                content: [{
-                  type: "text",
-                  text: allNotes.length ?
-                    allNotes.map((note) => `${note.name}:\n${note.content}`)
-                    .join("\n\n") : 
-                    "No notes exist."
-                }],
-                isError: false
-              };
+            switch (operation) {
+              case "search": {
+                if (!args.searchText) {
+                  throw new Error("Search text is required for search operation");
+                }
+                
+                const foundNotes = await notesModule.findNote(args.searchText);
+                return {
+                  content: [{
+                    type: "text",
+                    text: foundNotes.length ?
+                      foundNotes.map(note => `${note.name}:\n${note.content}`).join("\n\n") :
+                      `No notes found for "${args.searchText}"`
+                  }],
+                  isError: false
+                };
+              }
+              
+              case "list": {
+                const allNotes = await notesModule.getAllNotes();
+                return {
+                  content: [{
+                    type: "text",
+                    text: allNotes.length ?
+                      allNotes.map((note) => `${note.name}:\n${note.content}`)
+                      .join("\n\n") : 
+                      "No notes exist."
+                  }],
+                  isError: false
+                };
+              }
+              
+              case "create": {
+                if (!args.title || !args.body) {
+                  throw new Error("Title and body are required for create operation");
+                }
+                
+                const result = await notesModule.createNote(args.title, args.body, args.folderName);
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.success ?
+                      `Created note "${args.title}" in folder "${result.folderName}"${result.usedDefaultFolder ? ' (created new folder)' : ''}.` :
+                      `Failed to create note: ${result.message}`
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              default:
+                throw new Error(`Unknown operation: ${operation}`);
             }
           } catch (error) {
             return {
@@ -850,6 +888,150 @@ end tell`;
             };
           }
         }
+        
+        case "maps": {
+          if (!isMapsArgs(args)) {
+            throw new Error("Invalid arguments for maps tool");
+          }
+          
+          try {
+            const mapsModule = await loadModule("maps");
+            const { operation } = args;
+            
+            switch (operation) {
+              case "search": {
+                const { query, limit } = args;
+                if (!query) {
+                  throw new Error("Search query is required for search operation");
+                }
+                
+                const result = await mapsModule.searchLocations(query, limit);
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.success ? 
+                      `${result.message}\n\n${result.locations.map(location => 
+                        `Name: ${location.name}\n` +
+                        `Address: ${location.address}\n` +
+                        `${location.latitude && location.longitude ? `Coordinates: ${location.latitude}, ${location.longitude}\n` : ''}`
+                      ).join("\n\n")}` : 
+                      `${result.message}`
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              case "save": {
+                const { name, address } = args;
+                if (!name || !address) {
+                  throw new Error("Name and address are required for save operation");
+                }
+                
+                const result = await mapsModule.saveLocation(name, address);
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.message
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              case "pin": {
+                const { name, address } = args;
+                if (!name || !address) {
+                  throw new Error("Name and address are required for pin operation");
+                }
+                
+                const result = await mapsModule.dropPin(name, address);
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.message
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              case "directions": {
+                const { fromAddress, toAddress, transportType } = args;
+                if (!fromAddress || !toAddress) {
+                  throw new Error("From and to addresses are required for directions operation");
+                }
+                
+                const result = await mapsModule.getDirections(fromAddress, toAddress, transportType as 'driving' | 'walking' | 'transit');
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.message
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              case "listGuides": {
+                const result = await mapsModule.listGuides();
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.message
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              case "addToGuide": {
+                const { address, guideName } = args;
+                if (!address || !guideName) {
+                  throw new Error("Address and guideName are required for addToGuide operation");
+                }
+                
+                const result = await mapsModule.addToGuide(address, guideName);
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.message
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              case "createGuide": {
+                const { guideName } = args;
+                if (!guideName) {
+                  throw new Error("Guide name is required for createGuide operation");
+                }
+                
+                const result = await mapsModule.createGuide(guideName);
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.message
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              default:
+                throw new Error(`Unknown maps operation: ${operation}`);
+            }
+          } catch (error) {
+            return {
+              content: [{
+                type: "text",
+                text: `Error in maps tool: ${error instanceof Error ? error.message : String(error)}`
+              }],
+              isError: true
+            };
+          }
+        }
 
         default:
           return {
@@ -909,12 +1091,49 @@ function isContactsArgs(args: unknown): args is { name?: string } {
   );
 }
 
-function isNotesArgs(args: unknown): args is { searchText?: string } {
-  return (
-    typeof args === "object" &&
-    args !== null &&
-    (!("searchText" in args) || typeof (args as { searchText: string }).searchText === "string")
-  );
+function isNotesArgs(args: unknown): args is { 
+  operation: "search" | "list" | "create";
+  searchText?: string;
+  title?: string;
+  body?: string;
+  folderName?: string;
+} {
+  if (typeof args !== "object" || args === null) {
+    return false;
+  }
+  
+  const { operation } = args as { operation?: unknown };
+  if (typeof operation !== "string") {
+    return false;
+  }
+  
+  if (!["search", "list", "create"].includes(operation)) {
+    return false;
+  }
+  
+  // Validate fields based on operation
+  if (operation === "search") {
+    const { searchText } = args as { searchText?: unknown };
+    if (typeof searchText !== "string" || searchText === "") {
+      return false;
+    }
+  }
+  
+  if (operation === "create") {
+    const { title, body } = args as { title?: unknown, body?: unknown };
+    if (typeof title !== "string" || title === "" || 
+        typeof body !== "string") {
+      return false;
+    }
+    
+    // Check folderName if provided
+    const { folderName } = args as { folderName?: unknown };
+    if (folderName !== undefined && (typeof folderName !== "string" || folderName === "")) {
+      return false;
+    }
+  }
+  
+  return true;
 }
 
 function isMessagesArgs(args: unknown): args is {
@@ -1106,6 +1325,76 @@ function isCalendarArgs(args: unknown): args is {
     };
     
     if (typeof title !== "string" || typeof startDate !== "string" || typeof endDate !== "string") {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isMapsArgs(args: unknown): args is {
+  operation: "search" | "save" | "directions" | "pin" | "listGuides" | "addToGuide" | "createGuide";
+  query?: string;
+  limit?: number;
+  name?: string;
+  address?: string;
+  fromAddress?: string;
+  toAddress?: string;
+  transportType?: string;
+  guideName?: string;
+} {
+  if (typeof args !== "object" || args === null) {
+    return false;
+  }
+
+  const { operation } = args as { operation?: unknown };
+  if (typeof operation !== "string") {
+    return false;
+  }
+
+  if (!["search", "save", "directions", "pin", "listGuides", "addToGuide", "createGuide"].includes(operation)) {
+    return false;
+  }
+
+  // Check that required parameters are present for each operation
+  if (operation === "search") {
+    const { query } = args as { query?: unknown };
+    if (typeof query !== "string" || query === "") {
+      return false;
+    }
+  }
+
+  if (operation === "save" || operation === "pin") {
+    const { name, address } = args as { name?: unknown; address?: unknown };
+    if (typeof name !== "string" || name === "" || typeof address !== "string" || address === "") {
+      return false;
+    }
+  }
+
+  if (operation === "directions") {
+    const { fromAddress, toAddress } = args as { fromAddress?: unknown; toAddress?: unknown };
+    if (typeof fromAddress !== "string" || fromAddress === "" || typeof toAddress !== "string" || toAddress === "") {
+      return false;
+    }
+
+    // Check transportType if provided
+    const { transportType } = args as { transportType?: unknown };
+    if (transportType !== undefined && 
+        (typeof transportType !== "string" || !["driving", "walking", "transit"].includes(transportType))) {
+      return false;
+    }
+  }
+  
+  if (operation === "createGuide") {
+    const { guideName } = args as { guideName?: unknown };
+    if (typeof guideName !== "string" || guideName === "") {
+      return false;
+    }
+  }
+  
+  if (operation === "addToGuide") {
+    const { address, guideName } = args as { address?: unknown; guideName?: unknown };
+    if (typeof address !== "string" || address === "" || typeof guideName !== "string" || guideName === "") {
       return false;
     }
   }
