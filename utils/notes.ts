@@ -62,46 +62,61 @@ async function createNote(title: string, body: string, folderName: string = 'Cla
             // Create the note
             let targetFolder;
             let usedDefaultFolder = false;
+            let actualFolderName = folderName;
             
-            // Try to find the specified folder
-            const folders = Notes.folders();
-            targetFolder = folders.find((folder: any) => 
-                folder.name() === folderName
-            );
-            
-            // If the specified folder doesn't exist
-            if (!targetFolder) {
-                if (folderName === 'Claude') {
-                    // Try to create the Claude folder if it doesn't exist
-                    try {
-                        targetFolder = Notes.Folder.make({withProperties: {name: 'Claude'}});
-                        usedDefaultFolder = true;
-                    } catch (error) {
-                        // If we can't create the Claude folder, use the default folder
-                        targetFolder = null;
+            try {
+                // Try to find the specified folder
+                const folders = Notes.folders();
+                for (let i = 0; i < folders.length; i++) {
+                    if (folders[i].name() === folderName) {
+                        targetFolder = folders[i];
+                        break;
                     }
-                } else {
-                    throw new Error(`Folder "${folderName}" not found`);
                 }
+                
+                // If the specified folder doesn't exist
+                if (!targetFolder) {
+                    if (folderName === 'Claude') {
+                        // Try to create the Claude folder if it doesn't exist
+                        Notes.make({new: 'folder', withProperties: {name: 'Claude'}});
+                        usedDefaultFolder = true;
+                        
+                        // Find it again after creation
+                        const updatedFolders = Notes.folders();
+                        for (let i = 0; i < updatedFolders.length; i++) {
+                            if (updatedFolders[i].name() === 'Claude') {
+                                targetFolder = updatedFolders[i];
+                                break;
+                            }
+                        }
+                    } else {
+                        throw new Error(`Folder "${folderName}" not found`);
+                    }
+                }
+                
+                // Create the note in the specified folder or default folder
+                let newNote;
+                if (targetFolder) {
+                    newNote = Notes.make({new: 'note', withProperties: {name: title, body: body}, at: targetFolder});
+                    actualFolderName = folderName;
+                } else {
+                    // Fall back to default folder
+                    newNote = Notes.make({new: 'note', withProperties: {name: title, body: body}});
+                    actualFolderName = 'Default';
+                }
+                
+                return {
+                    success: true,
+                    note: {
+                        name: title,
+                        content: body
+                    },
+                    folderName: actualFolderName,
+                    usedDefaultFolder: usedDefaultFolder
+                };
+            } catch (scriptError) {
+                throw new Error(`AppleScript error: ${scriptError.message || String(scriptError)}`);
             }
-            
-            // Create the note in the specified folder or default folder
-            let newNote;
-            if (targetFolder) {
-                newNote = Notes.Body.make({at: targetFolder, withProperties: {name: title, body: body}});
-            } else {
-                newNote = Notes.make({withProperties: {name: title, body: body}});
-            }
-            
-            return {
-                success: true,
-                note: {
-                    name: title,
-                    content: body
-                },
-                folderName: targetFolder ? folderName : 'Default',
-                usedDefaultFolder: usedDefaultFolder
-            };
         }, title, body, folderName);
         
         return result;
