@@ -4,8 +4,15 @@ type Note = {
     name: string;
     content: string;
 };
-  
 
+type CreateNoteResult = {
+    success: boolean;
+    note?: Note;
+    message?: string;
+    folderName?: string;
+    usedDefaultFolder?: boolean;
+};
+  
 async function getAllNotes() {
     const notes: Note[] = await run(() => {
         const Notes = Application('Notes');
@@ -19,7 +26,6 @@ async function getAllNotes() {
 
     return notes;
 }
-
 
 async function findNote(searchText: string) {
     const notes: Note[] = await run((searchText: string) => {
@@ -48,5 +54,79 @@ async function findNote(searchText: string) {
     return notes;
 }
 
-export default { getAllNotes, findNote };
+async function createNote(title: string, body: string, folderName: string = 'Claude'): Promise<CreateNoteResult> {
+    try {
+        const result = await run((title: string, body: string, folderName: string) => {
+            const Notes = Application('Notes');
+            
+            // Create the note
+            let targetFolder;
+            let usedDefaultFolder = false;
+            let actualFolderName = folderName;
+            
+            try {
+                // Try to find the specified folder
+                const folders = Notes.folders();
+                for (let i = 0; i < folders.length; i++) {
+                    if (folders[i].name() === folderName) {
+                        targetFolder = folders[i];
+                        break;
+                    }
+                }
+                
+                // If the specified folder doesn't exist
+                if (!targetFolder) {
+                    if (folderName === 'Claude') {
+                        // Try to create the Claude folder if it doesn't exist
+                        Notes.make({new: 'folder', withProperties: {name: 'Claude'}});
+                        usedDefaultFolder = true;
+                        
+                        // Find it again after creation
+                        const updatedFolders = Notes.folders();
+                        for (let i = 0; i < updatedFolders.length; i++) {
+                            if (updatedFolders[i].name() === 'Claude') {
+                                targetFolder = updatedFolders[i];
+                                break;
+                            }
+                        }
+                    } else {
+                        throw new Error(`Folder "${folderName}" not found`);
+                    }
+                }
+                
+                // Create the note in the specified folder or default folder
+                let newNote;
+                if (targetFolder) {
+                    newNote = Notes.make({new: 'note', withProperties: {name: title, body: body}, at: targetFolder});
+                    actualFolderName = folderName;
+                } else {
+                    // Fall back to default folder
+                    newNote = Notes.make({new: 'note', withProperties: {name: title, body: body}});
+                    actualFolderName = 'Default';
+                }
+                
+                return {
+                    success: true,
+                    note: {
+                        name: title,
+                        content: body
+                    },
+                    folderName: actualFolderName,
+                    usedDefaultFolder: usedDefaultFolder
+                };
+            } catch (scriptError) {
+                throw new Error(`AppleScript error: ${scriptError.message || String(scriptError)}`);
+            }
+        }, title, body, folderName);
+        
+        return result;
+    } catch (error) {
+        return {
+            success: false,
+            message: `Failed to create note: ${error instanceof Error ? error.message : String(error)}`
+        };
+    }
+}
+
+export default { getAllNotes, findNote, createNote };
 

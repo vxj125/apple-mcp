@@ -259,31 +259,60 @@ function initServer() {
 
           try {
             const notesModule = await loadModule('notes');
+            const { operation } = args;
             
-            if (args.searchText) {
-              const foundNotes = await notesModule.findNote(args.searchText);
-              return {
-                content: [{
-                  type: "text",
-                  text: foundNotes.length ?
-                    foundNotes.map(note => `${note.name}:\n${note.content}`).join("\n\n") :
-                    `No notes found for "${args.searchText}"`
-                }],
-                isError: false
-              };
-            } else {
-              const allNotes = await notesModule.getAllNotes();
-
-              return {
-                content: [{
-                  type: "text",
-                  text: allNotes.length ?
-                    allNotes.map((note) => `${note.name}:\n${note.content}`)
-                    .join("\n\n") : 
-                    "No notes exist."
-                }],
-                isError: false
-              };
+            switch (operation) {
+              case "search": {
+                if (!args.searchText) {
+                  throw new Error("Search text is required for search operation");
+                }
+                
+                const foundNotes = await notesModule.findNote(args.searchText);
+                return {
+                  content: [{
+                    type: "text",
+                    text: foundNotes.length ?
+                      foundNotes.map(note => `${note.name}:\n${note.content}`).join("\n\n") :
+                      `No notes found for "${args.searchText}"`
+                  }],
+                  isError: false
+                };
+              }
+              
+              case "list": {
+                const allNotes = await notesModule.getAllNotes();
+                return {
+                  content: [{
+                    type: "text",
+                    text: allNotes.length ?
+                      allNotes.map((note) => `${note.name}:\n${note.content}`)
+                      .join("\n\n") : 
+                      "No notes exist."
+                  }],
+                  isError: false
+                };
+              }
+              
+              case "create": {
+                if (!args.title || !args.body) {
+                  throw new Error("Title and body are required for create operation");
+                }
+                
+                const result = await notesModule.createNote(args.title, args.body, args.folderName);
+                
+                return {
+                  content: [{
+                    type: "text",
+                    text: result.success ?
+                      `Created note "${args.title}" in folder "${result.folderName}"${result.usedDefaultFolder ? ' (created new folder)' : ''}.` :
+                      `Failed to create note: ${result.message}`
+                  }],
+                  isError: !result.success
+                };
+              }
+              
+              default:
+                throw new Error(`Unknown operation: ${operation}`);
             }
           } catch (error) {
             return {
@@ -909,12 +938,49 @@ function isContactsArgs(args: unknown): args is { name?: string } {
   );
 }
 
-function isNotesArgs(args: unknown): args is { searchText?: string } {
-  return (
-    typeof args === "object" &&
-    args !== null &&
-    (!("searchText" in args) || typeof (args as { searchText: string }).searchText === "string")
-  );
+function isNotesArgs(args: unknown): args is { 
+  operation: "search" | "list" | "create";
+  searchText?: string;
+  title?: string;
+  body?: string;
+  folderName?: string;
+} {
+  if (typeof args !== "object" || args === null) {
+    return false;
+  }
+  
+  const { operation } = args as { operation?: unknown };
+  if (typeof operation !== "string") {
+    return false;
+  }
+  
+  if (!["search", "list", "create"].includes(operation)) {
+    return false;
+  }
+  
+  // Validate fields based on operation
+  if (operation === "search") {
+    const { searchText } = args as { searchText?: unknown };
+    if (typeof searchText !== "string" || searchText === "") {
+      return false;
+    }
+  }
+  
+  if (operation === "create") {
+    const { title, body } = args as { title?: unknown, body?: unknown };
+    if (typeof title !== "string" || title === "" || 
+        typeof body !== "string") {
+      return false;
+    }
+    
+    // Check folderName if provided
+    const { folderName } = args as { folderName?: unknown };
+    if (folderName !== undefined && (typeof folderName !== "string" || folderName === "")) {
+      return false;
+    }
+  }
+  
+  return true;
 }
 
 function isMessagesArgs(args: unknown): args is {
